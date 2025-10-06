@@ -1,0 +1,255 @@
+# AEGIS Trading Coach - Setup Wizard
+# Interactive setup guide with step-by-step instructions
+
+$ErrorActionPreference = "Stop"
+
+# Colors
+function Write-Step($message) { Write-Host "`n$message" -ForegroundColor Cyan }
+function Write-Success($message) { Write-Host "✅ $message" -ForegroundColor Green }
+function Write-Error($message) { Write-Host "❌ $message" -ForegroundColor Red }
+function Write-Warning($message) { Write-Host "⚠️  $message" -ForegroundColor Yellow }
+function Write-Info($message) { Write-Host "ℹ️  $message" -ForegroundColor Blue }
+
+Clear-Host
+Write-Host @"
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║        🛡️  AEGIS Trading Coach - Setup Wizard  🛡️         ║
+║                                                           ║
+║            Guida Interattiva al Deploy                    ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
+"@ -ForegroundColor Cyan
+
+Write-Host "`nQuesta procedura guidata ti aiuterà a:" -ForegroundColor White
+Write-Host "  1. Creare il database su Prisma Cloud"
+Write-Host "  2. Configurare le variabili d'ambiente"
+Write-Host "  3. Inizializzare il database"
+Write-Host "  4. Creare l'utente amministratore"
+Write-Host "  5. Deployare su Vercel"
+Write-Host ""
+
+$continue = Read-Host "Vuoi continuare? (y/n)"
+if ($continue -ne "y" -and $continue -ne "Y") {
+    Write-Warning "Setup annullato."
+    exit 0
+}
+
+# ============================================================================
+# STEP 1: PRISMA CLOUD DATABASE
+# ============================================================================
+
+Write-Step "═══════════════════════════════════════════════════════════"
+Write-Step "STEP 1/5: Creazione Database su Prisma Cloud"
+Write-Step "═══════════════════════════════════════════════════════════"
+
+Write-Host @"
+
+📝 ISTRUZIONI:
+
+1. Apri il browser e vai su: https://cloud.prisma.io
+2. Crea un account (se non l'hai già) o fai login
+3. Clicca su "New Project"
+4. Seleziona "PostgreSQL" come database
+5. Scegli la regione più vicina a te
+6. Clicca "Create"
+7. Una volta creato, clicca su "Enable Accelerate"
+8. Copia l'URL di connessione (inizia con prisma+postgres://)
+
+"@ -ForegroundColor Yellow
+
+Write-Info "Apro il browser su Prisma Cloud..."
+Start-Process "https://cloud.prisma.io"
+
+Write-Host "`nHai creato il database e ottenuto l'URL Accelerate?" -ForegroundColor White
+$hasPrisma = Read-Host "(y/n)"
+
+if ($hasPrisma -ne "y" -and $hasPrisma -ne "Y") {
+    Write-Error "Per favore, crea prima il database su Prisma Cloud."
+    Write-Info "Quando sei pronto, esegui di nuovo questo script."
+    exit 0
+}
+
+$prismaUrl = Read-Host "`nIncolla qui il tuo PRISMA_ACCELERATE_URL"
+
+if ([string]::IsNullOrWhiteSpace($prismaUrl)) {
+    Write-Error "URL non valido. Riprova."
+    exit 1
+}
+
+if (-not $prismaUrl.StartsWith("prisma+postgres://")) {
+    Write-Warning "L'URL dovrebbe iniziare con 'prisma+postgres://'"
+    $confirm = Read-Host "Vuoi continuare comunque? (y/n)"
+    if ($confirm -ne "y" -and $confirm -ne "Y") {
+        exit 1
+    }
+}
+
+Write-Success "URL Prisma salvato!"
+
+# ============================================================================
+# STEP 2: NEXTAUTH SECRET
+# ============================================================================
+
+Write-Step "`n═══════════════════════════════════════════════════════════"
+Write-Step "STEP 2/5: Generazione NextAuth Secret"
+Write-Step "═══════════════════════════════════════════════════════════"
+
+Write-Host "`nGenerazione secret sicuro..." -ForegroundColor Yellow
+$nextAuthSecret = node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+Write-Success "Secret generato!"
+Write-Host "Secret: $nextAuthSecret" -ForegroundColor DarkGray
+
+# ============================================================================
+# STEP 3: CONFIGURAZIONE .env.local
+# ============================================================================
+
+Write-Step "`n═══════════════════════════════════════════════════════════"
+Write-Step "STEP 3/5: Configurazione File di Ambiente"
+Write-Step "═══════════════════════════════════════════════════════════"
+
+$envContent = @"
+# =============================================================================
+# AEGIS Trading Coach - Environment Variables
+# Generated by Setup Wizard on $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+# =============================================================================
+
+# =============================================================================
+# DATABASE
+# =============================================================================
+PRISMA_ACCELERATE_URL="$prismaUrl"
+
+# =============================================================================
+# NEXTAUTH
+# =============================================================================
+NEXTAUTH_SECRET="$nextAuthSecret"
+NEXTAUTH_URL="http://localhost:3000"
+
+# =============================================================================
+# APPLICATION
+# =============================================================================
+NODE_ENV="development"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+"@
+
+$envContent | Out-File -FilePath ".env.local" -Encoding utf8
+
+Write-Success "File .env.local creato!"
+
+# ============================================================================
+# STEP 4: DATABASE SETUP
+# ============================================================================
+
+Write-Step "`n═══════════════════════════════════════════════════════════"
+Write-Step "STEP 4/5: Inizializzazione Database"
+Write-Step "═══════════════════════════════════════════════════════════"
+
+Write-Host "`nOra creerò le tabelle nel database..." -ForegroundColor Yellow
+Write-Host "Questo potrebbe richiedere alcuni secondi.`n"
+
+try {
+    npm run setup:db
+    Write-Success "Database inizializzato con successo!"
+} catch {
+    Write-Error "Errore durante l'inizializzazione del database"
+    Write-Info "Verifica che l'URL Prisma sia corretto e riprova"
+    exit 1
+}
+
+# ============================================================================
+# STEP 5: ADMIN USER
+# ============================================================================
+
+Write-Step "`n═══════════════════════════════════════════════════════════"
+Write-Step "STEP 5/5: Creazione Utente Amministratore"
+Write-Step "═══════════════════════════════════════════════════════════"
+
+Write-Host "`nOra creiamo l'utente amministratore.`n" -ForegroundColor Yellow
+
+$adminEmail = Read-Host "Email amministratore"
+$adminName = Read-Host "Nome completo"
+
+# Password validation
+do {
+    $adminPassword = Read-Host "Password (minimo 8 caratteri)" -AsSecureString
+    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($adminPassword)
+    $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+
+    if ($plainPassword.Length -lt 8) {
+        Write-Warning "La password deve essere lunga almeno 8 caratteri!"
+    }
+} while ($plainPassword.Length -lt 8)
+
+Write-Host "`nCreazione utente amministratore..." -ForegroundColor Yellow
+
+$env:ADMIN_EMAIL = $adminEmail
+$env:ADMIN_PASSWORD = $plainPassword
+$env:ADMIN_NAME = $adminName
+
+try {
+    npm run create-admin
+    Write-Success "Utente amministratore creato!"
+} catch {
+    Write-Error "Errore durante la creazione dell'utente"
+    Write-Warning "Puoi crearlo manualmente con: npm run create-admin"
+}
+
+# ============================================================================
+# FINAL SUMMARY
+# ============================================================================
+
+Write-Step "`n═══════════════════════════════════════════════════════════"
+Write-Step "✨ SETUP COMPLETATO! ✨"
+Write-Step "═══════════════════════════════════════════════════════════"
+
+Write-Host @"
+
+🎉 Congratulazioni! Il setup locale è completato!
+
+📋 COSA È STATO FATTO:
+✅ Database PostgreSQL creato su Prisma Cloud
+✅ File .env.local configurato
+✅ Schema database creato
+✅ Utente amministratore creato
+
+📧 Credenziali Admin:
+   Email: $adminEmail
+   Password: [quella che hai inserito]
+
+🚀 PROSSIMI PASSI:
+
+1. TESTA IN LOCALE:
+   npm run dev
+   Vai su: http://localhost:3000
+
+2. DEPLOY SU VERCEL:
+
+   Opzione A - Automatico (Consigliato):
+   .\scripts\quick-deploy.ps1
+
+   Opzione B - Manuale:
+   vercel --prod
+
+   IMPORTANTE: Aggiungi queste variabili su Vercel:
+   - PRISMA_ACCELERATE_URL (stesso valore di .env.local)
+   - NEXTAUTH_SECRET (stesso valore di .env.local)
+   - NEXTAUTH_URL (https://your-app.vercel.app)
+
+📚 DOCUMENTAZIONE:
+- Quick Start: QUICK_START.md
+- Deploy Guide: DEPLOYMENT_GUIDE.md
+- Troubleshooting: SETUP_INSTRUCTIONS.md
+
+"@ -ForegroundColor Green
+
+Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host ""
+
+$startDev = Read-Host "Vuoi avviare il server di sviluppo ora? (y/n)"
+if ($startDev -eq "y" -or $startDev -eq "Y") {
+    Write-Info "Avvio server di sviluppo..."
+    npm run dev
+}
+
+Write-Success "Setup wizard completato! Buon trading! 📈"

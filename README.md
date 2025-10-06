@@ -2,49 +2,59 @@
 
 Professional trading dashboard with MT4/MT5 integration built with Next.js 15, React 18, Prisma, and NextAuth.
 
-## 🚀 Quick Start
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/aegis-trading-coach)
 
-### 1. Prerequisites
+## 🚀 **[➡️ INIZIA DA QUI! ⬅️](../INIZIA_QUI.md)**
 
-- Node.js >= 18.17.0
-- npm >= 9.x
-- Prisma Cloud account (https://cloud.prisma.io)
-- Vercel account (https://vercel.com)
+## 📖 Documentation
 
-### 2. Setup Database
+- **[🎯 INIZIA_QUI.md](../INIZIA_QUI.md)** - **START HERE!** Setup in 5 minuti
+- **[🗄️ DATABASE_SETUP.md](DATABASE_SETUP.md)** - Database setup guide
+- **[⚡ QUICK_START.md](QUICK_START.md)** - Get started in 3 commands
+- **[🚀 DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Complete deployment guide
+- **[📋 SETUP_INSTRUCTIONS.md](SETUP_INSTRUCTIONS.md)** - Detailed setup instructions
+- **[🔧 PROJECT_REBUILD_GUIDE.md](../PROJECT_REBUILD_GUIDE.md)** - Full rebuild guide
 
-1. Go to https://cloud.prisma.io
-2. Create new PostgreSQL database
-3. Enable Prisma Accelerate
-4. Copy the Accelerate connection URL
+## 🚀 Quick Deploy (Automated)
 
-### 3. Configure Environment Variables
+### One-Command Deployment
 
-Edit `.env.local` and update:
-
-```bash
-PRISMA_ACCELERATE_URL="your-prisma-accelerate-url-here"
+**Windows (PowerShell):**
+```powershell
+.\scripts\quick-deploy.ps1
 ```
 
-### 4. Initialize Database
-
+**Linux/Mac (Bash):**
 ```bash
-npm run db:push
+chmod +x scripts/quick-deploy.sh && ./scripts/quick-deploy.sh
 ```
 
-### 5. Create Admin User
+This will automatically:
+- ✅ Check your setup
+- ✅ Build the project
+- ✅ Push to GitHub
+- ✅ Deploy to Vercel
 
+### Manual Setup (3 Steps)
+
+**1. Setup Database**
 ```bash
-ADMIN_EMAIL="your@email.com" ADMIN_PASSWORD="YourPassword123!" ADMIN_NAME="Your Name" npx tsx scripts/create-admin.ts
+npm run setup:db
 ```
 
-### 6. Run Development Server
-
+**2. Create Admin User**
 ```bash
-npm run dev
+ADMIN_EMAIL="your@email.com" ADMIN_PASSWORD="Pass123!" npm run create-admin
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+**3. Deploy**
+```bash
+vercel --prod
+```
+
+**Done!** 🎉
+
+See [QUICK_START.md](QUICK_START.md) for detailed instructions.
 
 ## 📦 Tech Stack
 
@@ -98,12 +108,25 @@ NEXTAUTH_URL=https://your-project.vercel.app
 
 ## 📝 Available Scripts
 
+### Development
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
+
+### Database
+- `npm run setup:db` - Setup database (generate + push)
 - `npm run db:push` - Push Prisma schema to database
 - `npm run db:studio` - Open Prisma Studio
+
+### Admin & Deployment
+- `npm run create-admin` - Create admin user
+- `npm run deploy:check` - Check if ready to deploy
+- `npm run deploy:prepare` - Check + build
+
+### Automated Deploy
+- `.\scripts\quick-deploy.ps1` (Windows)
+- `./scripts/quick-deploy.sh` (Linux/Mac)
 
 ## 🔑 Features
 
