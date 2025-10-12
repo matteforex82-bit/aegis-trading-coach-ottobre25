@@ -9,7 +9,7 @@
 #property strict
 
 // Input Parameters
-input string API_URL = "https://aegis-trading-coach.vercel.app/api/ingest/mt5";
+input string API_URL = "https://aegis-trading-coach-k3zlqosbl-matteo-negrinis-projects.vercel.app/api/ingest/mt5";
 input int    SYNC_INTERVAL_SECONDS = 60;
 input bool   ENABLE_LOGGING = true;
 input bool   SYNC_OPEN_POSITIONS = true;
