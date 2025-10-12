@@ -49,16 +49,16 @@
     "recharts": "^2.15.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.18",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
     "prisma": "^6.16.3",
-    "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.19.2"
   }
 }
