@@ -1,12 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { AccountType, AccountStatus } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
 // CORS headers for MT5 EA
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
+}
+
+// Validate API Key from request header
+async function validateApiKey(request: NextRequest): Promise<{ valid: boolean; userId?: string; error?: string }> {
+  const apiKey = request.headers.get('X-API-Key') || request.headers.get('x-api-key')
+
+  if (!apiKey) {
+    return { valid: false, error: 'Missing API Key' }
+  }
+
+  // Check if key starts with expected prefix
+  if (!apiKey.startsWith('sk_aegis_')) {
+    return { valid: false, error: 'Invalid API Key format' }
+  }
+
+  // Find all active API keys and check against hashed values
+  const apiKeys = await db.apiKey.findMany({
+    where: { isActive: true }
+  })
+
+  for (const key of apiKeys) {
+    const isValid = await bcrypt.compare(apiKey, key.key)
+    if (isValid) {
+      // Update last used timestamp
+      await db.apiKey.update({
+        where: { id: key.id },
+        data: { lastUsedAt: new Date() }
+      })
+
+      return { valid: true, userId: key.userId }
+    }
+  }
+
+  return { valid: false, error: 'Invalid or expired API Key' }
 }
 
 interface MT5Account {
@@ -66,13 +101,27 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate API Key first
+    const authResult = await validateApiKey(request)
+
+    if (!authResult.valid) {
+      return NextResponse.json(
+        {
+          error: 'Unauthorized',
+          message: authResult.error || 'Invalid API Key',
+          hint: 'Make sure you have set the API_KEY parameter in your MT5 Expert Advisor'
+        },
+        { status: 401, headers: corsHeaders }
+      )
+    }
+
     const data: MT5Data = await request.json()
 
     // Validate required fields
     if (!data.account || !data.account.login) {
       return NextResponse.json(
         { error: 'Missing required account data' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -106,22 +155,10 @@ export async function POST(request: NextRequest) {
         }
       })
     } else {
-      // Create new account
-      // Get the first admin user (or create logic for API key authentication)
-      const adminUser = await db.user.findFirst({
-        where: { role: 'ADMIN' }
-      })
-
-      if (!adminUser) {
-        return NextResponse.json(
-          { error: 'No admin user found. Please create an admin user first.' },
-          { status: 500, headers: corsHeaders }
-        )
-      }
-
+      // Create new account using the authenticated user from API key
       tradingAccount = await db.tradingAccount.create({
         data: {
-          userId: adminUser.id,
+          userId: authResult.userId!,
           login: account.login.toString(),
           broker: account.broker,
           server: account.server,

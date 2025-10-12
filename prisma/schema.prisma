@@ -212,3 +212,23 @@ model JournalEntry {
   @@index([createdAt])
   @@map("journal_entries")
 }
+
+// =============================================================================
+// API KEYS (for MT5 EA authentication)
+// =============================================================================
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  key         String    @unique // Hashed API key
+  userId      String
+  name        String    // Descriptive name (e.g., "MT5 Account 123456")
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime? // Optional expiration
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([key])
+  @@index([userId])
+  @@map("api_keys")
+}

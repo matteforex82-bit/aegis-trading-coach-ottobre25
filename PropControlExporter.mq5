@@ -9,7 +9,8 @@
 #property strict
 
 // Input Parameters
-input string API_URL = "https://aegis-trading-coach-k3zlqosbl-matteo-negrinis-projects.vercel.app/api/ingest/mt5";
+input string API_URL = "https://aegis-trading-coach-gc0qkazow-matteo-negrinis-projects.vercel.app/api/ingest/mt5";
+input string API_KEY = "";  // Your API Key from dashboard (required)
 input int    SYNC_INTERVAL_SECONDS = 60;
 input bool   ENABLE_LOGGING = true;
 input bool   SYNC_OPEN_POSITIONS = true;
@@ -38,6 +39,14 @@ int OnInit() {
     Print("Broker: ", AccountInfoString(ACCOUNT_COMPANY));
     Print("Server: ", AccountInfoString(ACCOUNT_SERVER));
     Print("=================================================");
+
+    // Check if API Key is set
+    if(API_KEY == "") {
+        Print("❌ ERROR: API_KEY is not set!");
+        Print("⚠️  Please generate an API Key using: npm run setup:mt5");
+        Print("⚠️  Then add it to the API_KEY parameter in EA settings");
+        return(INIT_FAILED);
+    }
 
     // Verify WebRequest is allowed
     if(!TerminalInfoInteger(TERMINAL_CONNECTED)) {
@@ -91,8 +100,8 @@ void SyncDataToAPI() {
         Print("📦 Payload size: ", StringLen(jsonData), " bytes");
     }
 
-    // Send to API
-    string headers = "Content-Type: application/json\r\n";
+    // Send to API with API Key authentication
+    string headers = "Content-Type: application/json\r\nX-API-Key: " + API_KEY + "\r\n";
     char post[], result[];
 
     StringToCharArray(jsonData, post, 0, StringLen(jsonData));
