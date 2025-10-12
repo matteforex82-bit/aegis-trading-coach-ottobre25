@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { AccountType, AccountStatus } from '@prisma/client'
 
+// CORS headers for MT5 EA
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
 interface MT5Account {
   login: string
   broker: string
@@ -52,6 +59,11 @@ interface MT5Data {
   metrics?: MT5Metrics
 }
 
+// OPTIONS handler for CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const data: MT5Data = await request.json()
@@ -95,11 +107,21 @@ export async function POST(request: NextRequest) {
       })
     } else {
       // Create new account
-      // For EA sync, we'll use a system user ID or create anonymous user
-      // In production, you should require API key authentication
+      // Get the first admin user (or create logic for API key authentication)
+      const adminUser = await db.user.findFirst({
+        where: { role: 'ADMIN' }
+      })
+
+      if (!adminUser) {
+        return NextResponse.json(
+          { error: 'No admin user found. Please create an admin user first.' },
+          { status: 500, headers: corsHeaders }
+        )
+      }
+
       tradingAccount = await db.tradingAccount.create({
         data: {
-          userId: 'system', // Replace with actual user ID from API key
+          userId: adminUser.id,
           login: account.login.toString(),
           broker: account.broker,
           server: account.server,
@@ -191,7 +213,7 @@ export async function POST(request: NextRequest) {
       accountId: tradingAccount.id,
       tradesProcessed: trades?.length || 0,
       timestamp: new Date().toISOString()
-    })
+    }, { headers: corsHeaders })
 
   } catch (error) {
     console.error('MT5 Ingest Error:', error)
@@ -200,7 +222,7 @@ export async function POST(request: NextRequest) {
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error'
       },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     )
   }
 }
@@ -218,5 +240,5 @@ export async function GET() {
       trades: 'array (optional)',
       metrics: 'object (optional)'
     }
-  })
+  }, { headers: corsHeaders })
 }
