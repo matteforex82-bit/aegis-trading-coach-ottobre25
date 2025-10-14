@@ -1,5 +1,5 @@
 import { SubscriptionPlan } from '@prisma/client'
-import { prisma } from '@/lib/db'
+import { db as prisma } from '@/lib/db'
 
 /**
  * Get plan limits for a specific subscription plan
