@@ -1,7 +1,11 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Settings as SettingsIcon } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ApiKeyManager } from "@/components/settings/ApiKeyManager"
+import { ProfileSettings } from "@/components/settings/ProfileSettings"
+import { PasswordChange } from "@/components/settings/PasswordChange"
+import { NotificationSettings } from "@/components/settings/NotificationSettings"
+import { ThemeSettings } from "@/components/settings/ThemeSettings"
 
 export default function SettingsPage() {
   return (
@@ -13,28 +17,35 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Coming Soon</CardTitle>
-          <CardDescription>
-            Settings page is under development
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <SettingsIcon className="w-24 h-24 text-muted-foreground mb-4" />
-          <p className="text-center text-muted-foreground">
-            This page will include:
-          </p>
-          <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-            <li>• Profile settings</li>
-            <li>• Password change</li>
-            <li>• Notification preferences</li>
-            <li>• Theme customization</li>
-            <li>• API key management</li>
-            <li>• Export/import data</li>
-          </ul>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="appearance">Appearance</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="profile" className="space-y-6">
+          <ProfileSettings />
+        </TabsContent>
+
+        <TabsContent value="security" className="space-y-6">
+          <PasswordChange />
+        </TabsContent>
+
+        <TabsContent value="api-keys" className="space-y-6">
+          <ApiKeyManager />
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-6">
+          <NotificationSettings />
+        </TabsContent>
+
+        <TabsContent value="appearance" className="space-y-6">
+          <ThemeSettings />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -29,6 +29,7 @@ model User {
 
   accounts      Account[]
   sessions      Session[]
+  preferences   UserPreferences?
 
   @@map("users")
 }
@@ -231,4 +232,23 @@ model ApiKey {
   @@index([key])
   @@index([userId])
   @@map("api_keys")
+}
+
+// =============================================================================
+// USER PREFERENCES (for settings page)
+// =============================================================================
+
+model UserPreferences {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  emailNotifications    Boolean  @default(true)
+  dailyReport           Boolean  @default(false)
+  drawdownAlert         Boolean  @default(true)
+  theme                 String   @default("system") // light/dark/system
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
 }
