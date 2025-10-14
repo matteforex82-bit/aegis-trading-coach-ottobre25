@@ -16,6 +16,21 @@ enum UserRole {
   ADMIN
 }
 
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIAL
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -24,12 +39,24 @@ model User {
   password      String?
   image         String?
   role          UserRole  @default(USER)
+
+  // Subscription fields
+  subscriptionId     String?              // Stripe subscription ID
+  stripeCustomerId   String?   @unique   // Stripe customer ID
+  plan               SubscriptionPlan     @default(FREE)
+  status             SubscriptionStatus   @default(TRIAL)
+  trialEndsAt        DateTime?            // Fine trial (14 giorni default)
+  currentPeriodStart DateTime?            // Inizio periodo corrente
+  currentPeriodEnd   DateTime?            // Fine periodo (rinnovo)
+  cancelAtPeriodEnd  Boolean   @default(false) // Cancellato ma attivo fino a fine periodo
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   accounts      Account[]
   sessions      Session[]
   preferences   UserPreferences?
+  subscription  Subscription?
 
   @@map("users")
 }
@@ -251,4 +278,62 @@ model UserPreferences {
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_preferences")
+}
+
+// =============================================================================
+// SUBSCRIPTION SYSTEM (Multi-tenant SaaS)
+// =============================================================================
+
+model Subscription {
+  id                     String              @id @default(cuid())
+  userId                 String              @unique
+  user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  stripeSubscriptionId   String?             @unique
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
+
+  plan                   SubscriptionPlan
+  status                 SubscriptionStatus  @default(TRIAL)
+
+  canceledAt             DateTime?
+  cancelAtPeriodEnd      Boolean             @default(false)
+
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  invoices               Invoice[]
+
+  @@map("subscriptions")
+}
+
+model PlanLimits {
+  plan                  SubscriptionPlan @id
+  maxTradingAccounts    Int              // FREE: 1, STARTER: 1, PRO: 5, ENTERPRISE: 999
+  maxApiKeys            Int              // FREE: 1, STARTER: 2, PRO: 5, ENTERPRISE: 999
+  maxDataRetentionDays  Int              // FREE: 7, STARTER: 30, PRO: 90, ENTERPRISE: 365
+  advancedAnalytics     Boolean          // Solo PRO+
+  customBranding        Boolean          // Solo ENTERPRISE
+  prioritySupport       Boolean          // PRO+
+
+  @@map("plan_limits")
+}
+
+model Invoice {
+  id                 String         @id @default(cuid())
+  subscriptionId     String
+  subscription       Subscription   @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  stripeInvoiceId    String         @unique
+  amount             Float          // In centesimi (es. 2900 = $29.00)
+  currency           String         @default("USD")
+  status             String         // paid, open, void, uncollectible
+
+  paidAt             DateTime?
+  dueDate            DateTime?
+
+  createdAt          DateTime       @default(now())
+
+  @@index([subscriptionId])
+  @@map("invoices")
 }

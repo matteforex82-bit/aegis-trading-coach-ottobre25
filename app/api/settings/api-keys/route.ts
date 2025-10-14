@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { randomBytes } from 'crypto'
+import { checkApiKeyLimit } from '@/lib/plan-limits'
 
 const prisma = new PrismaClient()
 
@@ -64,14 +65,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check if user already has 5+ active keys (rate limiting)
-    const existingKeysCount = await prisma.apiKey.count({
-      where: { userId: user.id, isActive: true },
-    })
+    // Check plan limits for API keys
+    const limitCheck = await checkApiKeyLimit(user.id)
 
-    if (existingKeysCount >= 5) {
+    if (!limitCheck.canCreate) {
       return NextResponse.json(
-        { error: 'Maximum API keys limit reached (5)', hint: 'Please revoke an existing key first' },
+        {
+          error: `Maximum API keys limit reached (${limitCheck.limit})`,
+          hint: 'Please revoke an existing key first or upgrade your plan',
+          currentCount: limitCheck.currentCount,
+          limit: limitCheck.limit,
+        },
         { status: 400 }
       )
     }

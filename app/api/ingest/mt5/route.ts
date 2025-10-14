@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { AccountType, AccountStatus } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { checkAccountLimit } from '@/lib/plan-limits'
 
 // CORS headers for MT5 EA
 const corsHeaders = {
@@ -155,6 +156,22 @@ export async function POST(request: NextRequest) {
         }
       })
     } else {
+      // Check plan limits before creating new account
+      const limitCheck = await checkAccountLimit(authResult.userId!)
+
+      if (!limitCheck.canCreate) {
+        return NextResponse.json(
+          {
+            error: 'Account limit reached',
+            message: `You have reached the maximum number of trading accounts (${limitCheck.limit}) for your plan`,
+            hint: 'Please upgrade your plan to add more accounts',
+            currentCount: limitCheck.currentCount,
+            limit: limitCheck.limit,
+          },
+          { status: 403, headers: corsHeaders }
+        )
+      }
+
       // Create new account using the authenticated user from API key
       tradingAccount = await db.tradingAccount.create({
         data: {
