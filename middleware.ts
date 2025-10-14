@@ -62,7 +62,33 @@ export async function middleware(request: NextRequest) {
   }
 
   // ============================================================================
-  // PRIORITY 3: Protected Routes (NextAuth required)
+  // PRIORITY 3: Admin Routes (ADMIN role required)
+  // ============================================================================
+
+  if (pathname.startsWith('/admin')) {
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET
+    })
+
+    // Not authenticated - redirect to signin
+    if (!token) {
+      const signInUrl = new URL('/auth/signin', request.url)
+      signInUrl.searchParams.set('callbackUrl', pathname)
+      return NextResponse.redirect(signInUrl)
+    }
+
+    // Not an admin - redirect to dashboard
+    if (token.role !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+
+    // Admin authenticated - proceed
+    return NextResponse.next()
+  }
+
+  // ============================================================================
+  // PRIORITY 4: Protected Routes (NextAuth required)
   // ============================================================================
 
   // Check for valid session token

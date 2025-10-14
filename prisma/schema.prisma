@@ -53,10 +53,11 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  preferences   UserPreferences?
-  subscription  Subscription?
+  accounts         Account[]
+  sessions         Session[]
+  preferences      UserPreferences?
+  subscription     Subscription?
+  tradingAccounts  TradingAccount[]
 
   @@map("users")
 }
@@ -123,6 +124,7 @@ enum AccountStatus {
 model TradingAccount {
   id              String        @id @default(cuid())
   userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   login           String        @unique
   broker          String
   server          String?
