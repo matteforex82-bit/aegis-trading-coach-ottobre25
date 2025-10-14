@@ -1,16 +1,27 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { signIn } from "next-auth/react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Shield } from "lucide-react"
+import { Shield, Loader2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+
+const PLAN_NAMES: Record<string, string> = {
+  starter: "Starter ($29/mo)",
+  pro: "Pro ($99/mo)",
+  enterprise: "Enterprise ($299/mo)",
+}
 
 export default function SignUpPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const selectedPlan = searchParams.get('plan')
+
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -35,22 +46,59 @@ export default function SignUpPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/auth/signup", {
+      // Step 1: Create account
+      const signupResponse = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       })
 
-      const data = await response.json()
+      const signupData = await signupResponse.json()
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create account")
+      if (!signupResponse.ok) {
+        throw new Error(signupData.error || "Failed to create account")
       }
 
-      router.push("/auth/signin?message=Account created successfully")
+      // Step 2: Auto-login after signup
+      const signInResult = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      })
+
+      if (signInResult?.error) {
+        // Account created but login failed - redirect to signin
+        router.push("/auth/signin?message=Account created. Please sign in.")
+        return
+      }
+
+      // Step 3: If a plan was selected, redirect to checkout
+      if (selectedPlan && selectedPlan !== 'free') {
+        // Create Stripe checkout session
+        const checkoutResponse = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: selectedPlan }),
+        })
+
+        const checkoutData = await checkoutResponse.json()
+
+        if (checkoutResponse.ok && checkoutData.url) {
+          // Redirect to Stripe Checkout
+          window.location.href = checkoutData.url
+          return
+        } else {
+          // Checkout failed, redirect to dashboard
+          console.error("Checkout error:", checkoutData)
+          router.push("/dashboard?error=checkout_failed")
+          return
+        }
+      }
+
+      // No plan selected (or FREE plan) - redirect to dashboard
+      router.push("/dashboard?welcome=true")
     } catch (error: any) {
       setError(error.message || "An error occurred. Please try again.")
-    } finally {
       setIsLoading(false)
     }
   }
@@ -66,6 +114,11 @@ export default function SignUpPage() {
           <CardDescription className="text-center">
             Enter your details to create your account
           </CardDescription>
+          {selectedPlan && selectedPlan !== 'free' && (
+            <Badge className="mt-2" variant="secondary">
+              Selected: {PLAN_NAMES[selectedPlan] || selectedPlan}
+            </Badge>
+          )}
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -125,8 +178,20 @@ export default function SignUpPage() {
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create Account"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {selectedPlan && selectedPlan !== 'free' ? "Creating account & setting up checkout..." : "Creating account..."}
+                </>
+              ) : (
+                selectedPlan && selectedPlan !== 'free' ? "Create Account & Subscribe" : "Create Account"
+              )}
             </Button>
+            {selectedPlan && selectedPlan !== 'free' && (
+              <p className="text-xs text-center text-muted-foreground">
+                14-day free trial • No credit card required until trial ends
+              </p>
+            )}
             <p className="text-sm text-center text-muted-foreground">
               Already have an account?{" "}
               <Link href="/auth/signin" className="text-primary hover:underline">
