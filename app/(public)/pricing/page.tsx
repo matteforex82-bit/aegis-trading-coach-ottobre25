@@ -27,7 +27,7 @@ const plans = [
       'Limited Data History',
     ],
     cta: 'Get Started',
-    href: '/auth/register',
+    href: '/auth/signup',
     popular: false,
   },
   {
@@ -44,7 +44,7 @@ const plans = [
       'MT5/MT4 Integration',
     ],
     cta: 'Start Free Trial',
-    href: '/auth/register?plan=starter',
+    href: '/auth/signup?plan=starter',
     popular: false,
   },
   {
@@ -63,7 +63,7 @@ const plans = [
       'Export Reports',
     ],
     cta: 'Start Free Trial',
-    href: '/auth/register?plan=pro',
+    href: '/auth/signup?plan=pro',
     popular: true,
   },
   {
@@ -99,21 +99,15 @@ export default function PricingPage() {
             AEGIS
           </Link>
           <nav className="flex items-center gap-6">
-            <Link href="/features" className="text-sm hover:text-primary">
-              Features
-            </Link>
             <Link href="/pricing" className="text-sm font-medium hover:text-primary">
               Pricing
-            </Link>
-            <Link href="/docs" className="text-sm hover:text-primary">
-              Docs
             </Link>
             <Link href="/auth/signin">
               <Button variant="ghost" size="sm">
                 Sign In
               </Button>
             </Link>
-            <Link href="/auth/register">
+            <Link href="/auth/signup">
               <Button size="sm">Get Started</Button>
             </Link>
           </nav>
@@ -255,7 +249,7 @@ export default function PricingPage() {
           <p className="text-muted-foreground mb-8">
             Join thousands of traders who trust AEGIS for their performance tracking.
           </p>
-          <Link href="/auth/register">
+          <Link href="/auth/signup">
             <Button size="lg" className="px-8">
               Start Your Free Trial
             </Button>
@@ -271,63 +265,28 @@ export default function PricingPage() {
               <h4 className="font-semibold mb-3">Product</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <Link href="/features" className="hover:text-primary">
-                    Features
-                  </Link>
-                </li>
-                <li>
                   <Link href="/pricing" className="hover:text-primary">
                     Pricing
                   </Link>
                 </li>
                 <li>
-                  <Link href="/docs" className="hover:text-primary">
-                    Documentation
+                  <Link href="/dashboard" className="hover:text-primary">
+                    Dashboard
                   </Link>
                 </li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-3">Company</h4>
+              <h4 className="font-semibold mb-3">Account</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <Link href="/about" className="hover:text-primary">
-                    About
+                  <Link href="/auth/signin" className="hover:text-primary">
+                    Sign In
                   </Link>
                 </li>
                 <li>
-                  <Link href="/contact" className="hover:text-primary">
-                    Contact
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Legal</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>
-                  <Link href="/privacy" className="hover:text-primary">
-                    Privacy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/terms" className="hover:text-primary">
-                    Terms
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-3">Support</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>
-                  <Link href="/help" className="hover:text-primary">
-                    Help Center
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/contact" className="hover:text-primary">
-                    Contact Support
+                  <Link href="/auth/signup" className="hover:text-primary">
+                    Sign Up
                   </Link>
                 </li>
               </ul>

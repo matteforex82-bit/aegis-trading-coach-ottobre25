@@ -55,6 +55,8 @@ export async function middleware(request: NextRequest) {
     '/api/health',
     '/api/ping',
     '/api/ea-health',
+    '/pricing',
+    '/',
   ]
 
   if (publicPaths.some(path => pathname.startsWith(path))) {
