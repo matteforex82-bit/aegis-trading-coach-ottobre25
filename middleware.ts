@@ -56,6 +56,7 @@ export async function middleware(request: NextRequest) {
     '/api/ping',
     '/api/ea-health',
     '/pricing',
+    '/test-checkout',
     '/',
   ]
 
