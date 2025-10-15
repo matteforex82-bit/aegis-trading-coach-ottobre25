@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle, Loader2, CreditCard } from "lucide-react"
@@ -19,8 +19,12 @@ interface SubscriptionGuardProps {
 
 export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Check if user is in checkout flow (has plan parameter)
+  const isCheckoutFlow = searchParams.get('plan') !== null
 
   useEffect(() => {
     checkSubscription()
@@ -46,6 +50,12 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     )
+  }
+
+  // Allow checkout flow to proceed without subscription check
+  if (isCheckoutFlow) {
+    console.log('[SubscriptionGuard] Checkout flow detected, allowing access')
+    return <>{children}</>
   }
 
   // If no active subscription, show upgrade message

@@ -19,14 +19,18 @@ const PLAN_TO_ENUM: Record<string, SubscriptionPlan> = {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[Checkout API] Starting checkout flow...')
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.email) {
+      console.error('[Checkout API] No session found')
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+
+    console.log('[Checkout API] User email:', session.user.email)
 
     const user = await db.user.findUnique({
       where: { email: session.user.email },
@@ -48,19 +52,23 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { plan } = body
+    console.log('[Checkout API] Plan requested:', plan)
 
     if (!plan || !PLAN_TO_PRICE_ID[plan]) {
+      console.error('[Checkout API] Invalid plan:', plan)
       return NextResponse.json(
-        { error: 'Invalid plan selected' },
+        { error: 'Invalid plan selected', requestedPlan: plan },
         { status: 400 }
       )
     }
 
     const priceId = PLAN_TO_PRICE_ID[plan]
+    console.log('[Checkout API] Price ID:', priceId)
 
     if (!priceId) {
+      console.error('[Checkout API] Price ID not configured for plan:', plan)
       return NextResponse.json(
-        { error: 'Price ID not configured for this plan' },
+        { error: 'Price ID not configured for this plan', plan },
         { status: 500 }
       )
     }
@@ -87,6 +95,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Stripe Checkout Session
+    console.log('[Checkout API] Creating Stripe checkout session...')
+    console.log('[Checkout API] Customer ID:', stripeCustomerId)
+    console.log('[Checkout API] App URL:', process.env.NEXT_PUBLIC_APP_URL)
+
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: 'subscription',
@@ -112,6 +124,9 @@ export async function POST(request: NextRequest) {
       },
       allow_promotion_codes: true,
     })
+
+    console.log('[Checkout API] Checkout session created:', checkoutSession.id)
+    console.log('[Checkout API] Checkout URL:', checkoutSession.url)
 
     return NextResponse.json({
       sessionId: checkoutSession.id,
