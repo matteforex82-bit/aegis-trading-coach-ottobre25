@@ -33,7 +33,7 @@ export async function GET() {
     // Check if user has active subscription
     const hasActiveSubscription =
       user.status === 'ACTIVE' ||
-      user.status === 'TRIALING'
+      user.status === 'TRIAL'
 
     // Check if subscription is valid (not expired for non-active statuses)
     const isSubscriptionValid = hasActiveSubscription &&
