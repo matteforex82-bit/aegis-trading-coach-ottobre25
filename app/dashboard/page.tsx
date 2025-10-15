@@ -70,30 +70,39 @@ function DashboardContent() {
   }
 
   const createCheckoutSession = async (plan: string) => {
+    console.log('[Dashboard] Starting checkout for plan:', plan)
     setIsCheckoutLoading(true)
     setCheckoutError(null)
 
     try {
+      console.log('[Dashboard] Calling /api/checkout...')
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan }),
       })
 
+      console.log('[Dashboard] Checkout API response status:', response.status)
       const data = await response.json()
+      console.log('[Dashboard] Checkout API response data:', data)
 
       if (!response.ok) {
+        console.error('[Dashboard] Checkout API error:', data)
         throw new Error(data.error || data.message || "Failed to create checkout session")
       }
 
       if (data.url) {
+        console.log('[Dashboard] Redirecting to Stripe:', data.url)
         // Redirect to Stripe Checkout
         window.location.href = data.url
       } else {
+        console.error('[Dashboard] No checkout URL in response:', data)
         throw new Error("No checkout URL received")
       }
     } catch (error: any) {
-      console.error("Checkout error:", error)
+      console.error("[Dashboard] Checkout error:", error)
+      console.error("[Dashboard] Error message:", error.message)
+      console.error("[Dashboard] Error stack:", error.stack)
       setCheckoutError(error.message || "Failed to start checkout process")
       setIsCheckoutLoading(false)
       // Remove plan parameter from URL to prevent retry loop
