@@ -72,31 +72,14 @@ function SignUpForm() {
         return
       }
 
-      // Step 3: If a plan was selected, redirect to checkout
+      // Step 3: Redirect to dashboard with plan parameter if selected
+      // The dashboard will handle creating the Stripe checkout session
       if (selectedPlan && selectedPlan !== 'free') {
-        // Create Stripe checkout session
-        const checkoutResponse = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: selectedPlan }),
-        })
-
-        const checkoutData = await checkoutResponse.json()
-
-        if (checkoutResponse.ok && checkoutData.url) {
-          // Redirect to Stripe Checkout
-          window.location.href = checkoutData.url
-          return
-        } else {
-          // Checkout failed, redirect to dashboard
-          console.error("Checkout error:", checkoutData)
-          router.push("/dashboard?error=checkout_failed")
-          return
-        }
+        router.push(`/dashboard?plan=${selectedPlan}`)
+      } else {
+        // No plan selected (or FREE plan) - redirect to dashboard
+        router.push("/dashboard?welcome=true")
       }
-
-      // No plan selected (or FREE plan) - redirect to dashboard
-      router.push("/dashboard?welcome=true")
     } catch (error: any) {
       setError(error.message || "An error occurred. Please try again.")
       setIsLoading(false)

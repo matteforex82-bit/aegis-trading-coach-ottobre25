@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -11,6 +12,7 @@ import {
   DollarSign,
   Target,
   AlertTriangle,
+  Loader2,
 } from "lucide-react"
 import { formatCurrency, formatPercentage } from "@/lib/utils"
 
@@ -32,13 +34,25 @@ interface DashboardStats {
   }>
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchDashboardData()
   }, [])
+
+  // Handle checkout flow when redirected from signup with plan parameter
+  useEffect(() => {
+    const plan = searchParams.get('plan')
+    if (plan && !isCheckoutLoading && !checkoutError) {
+      createCheckoutSession(plan)
+    }
+  }, [searchParams])
 
   const fetchDashboardData = async () => {
     try {
@@ -52,6 +66,51 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const createCheckoutSession = async (plan: string) => {
+    setIsCheckoutLoading(true)
+    setCheckoutError(null)
+
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || "Failed to create checkout session")
+      }
+
+      if (data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url
+      } else {
+        throw new Error("No checkout URL received")
+      }
+    } catch (error: any) {
+      console.error("Checkout error:", error)
+      setCheckoutError(error.message || "Failed to start checkout process")
+      setIsCheckoutLoading(false)
+      // Remove plan parameter from URL to prevent retry loop
+      router.replace('/dashboard?error=checkout_failed')
+    }
+  }
+
+  // Show checkout loading overlay
+  if (isCheckoutLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full space-y-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <div className="text-center">
+          <h3 className="text-lg font-semibold">Setting up your subscription...</h3>
+          <p className="text-sm text-muted-foreground">Redirecting to secure checkout</p>
+        </div>
+      </div>
+    )
   }
 
   if (isLoading) {
@@ -112,6 +171,28 @@ export default function DashboardPage() {
           Overview of your trading performance
         </p>
       </div>
+
+      {/* Show checkout error if any */}
+      {checkoutError && (
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <div className="flex items-start space-x-3">
+              <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-destructive">Checkout Error</h3>
+                <p className="text-sm text-muted-foreground">{checkoutError}</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Please try again from the{" "}
+                  <a href="/pricing" className="text-primary hover:underline">
+                    pricing page
+                  </a>
+                  .
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -194,5 +275,17 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   )
 }
