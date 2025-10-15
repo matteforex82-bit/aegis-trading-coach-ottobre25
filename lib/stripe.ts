@@ -5,7 +5,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-11-20',
+  apiVersion: '2024-11-20' as any, // Override TypeScript type - '2025-09-30.clover' doesn't exist yet
   typescript: true,
 })
 
