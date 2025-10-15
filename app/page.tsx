@@ -26,11 +26,11 @@ export default async function Home() {
             Professional trading dashboard with MT4/MT5 integration
           </p>
           <div className="flex gap-4 justify-center">
-            <Link href="/auth/signin">
-              <Button size="lg">Sign In</Button>
+            <Link href="/pricing">
+              <Button size="lg">Get Started</Button>
             </Link>
-            <Link href="/auth/signup">
-              <Button size="lg" variant="outline">Create Account</Button>
+            <Link href="/auth/signin">
+              <Button size="lg" variant="outline">Sign In</Button>
             </Link>
           </div>
         </div>

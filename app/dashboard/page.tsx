@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { formatCurrency, formatPercentage } from "@/lib/utils"
+import { SubscriptionGuard } from "@/components/subscription-guard"
 
 interface DashboardStats {
   totalBalance: number
@@ -164,117 +165,119 @@ function DashboardContent() {
   ]
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">
-          Overview of your trading performance
-        </p>
-      </div>
+    <SubscriptionGuard>
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground">
+            Overview of your trading performance
+          </p>
+        </div>
 
-      {/* Show checkout error if any */}
-      {checkoutError && (
-        <Card className="border-destructive">
-          <CardContent className="pt-6">
-            <div className="flex items-start space-x-3">
-              <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-destructive">Checkout Error</h3>
-                <p className="text-sm text-muted-foreground">{checkoutError}</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Please try again from the{" "}
-                  <a href="/pricing" className="text-primary hover:underline">
-                    pricing page
-                  </a>
-                  .
-                </p>
+        {/* Show checkout error if any */}
+        {checkoutError && (
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <div className="flex items-start space-x-3">
+                <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-destructive">Checkout Error</h3>
+                  <p className="text-sm text-muted-foreground">{checkoutError}</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Please try again from the{" "}
+                    <a href="/pricing" className="text-primary hover:underline">
+                      pricing page
+                    </a>
+                    .
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {statCards.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              {stat.trend !== undefined && (
-                <p className="text-xs text-muted-foreground">
-                  <span
-                    className={
-                      stat.trend >= 0 ? "text-green-600" : "text-red-600"
-                    }
-                  >
-                    {formatPercentage(stat.trend)}
-                  </span>{" "}
-                  {stat.trendLabel || ""}
-                </p>
-              )}
-              {stat.description && (
-                <p className="text-xs text-muted-foreground">{stat.description}</p>
-              )}
             </CardContent>
           </Card>
-        ))}
-      </div>
+        )}
 
-      {/* Active Accounts */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Active Accounts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {stats?.accounts && stats.accounts.length > 0 ? (
-            <div className="space-y-4">
-              {stats.accounts.map((account) => (
-                <div
-                  key={account.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium">{account.broker}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Account: {account.login}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">
-                      {formatCurrency(account.currentBalance)}
-                    </p>
-                    <p
-                      className={`text-sm ${
-                        account.profit >= 0 ? "text-green-600" : "text-red-600"
-                      }`}
+        {/* Stats Grid */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {statCards.map((stat) => (
+            <Card key={stat.title}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                <stat.icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+                {stat.trend !== undefined && (
+                  <p className="text-xs text-muted-foreground">
+                    <span
+                      className={
+                        stat.trend >= 0 ? "text-green-600" : "text-red-600"
+                      }
                     >
-                      {formatCurrency(account.profit)}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={
-                      account.status === "ACTIVE" ? "success" : "secondary"
-                    }
+                      {formatPercentage(stat.trend)}
+                    </span>{" "}
+                    {stat.trendLabel || ""}
+                  </p>
+                )}
+                {stat.description && (
+                  <p className="text-xs text-muted-foreground">{stat.description}</p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Active Accounts */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Active Accounts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats?.accounts && stats.accounts.length > 0 ? (
+              <div className="space-y-4">
+                {stats.accounts.map((account) => (
+                  <div
+                    key={account.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
                   >
-                    {account.status}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Wallet className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p>No active accounts yet</p>
-              <p className="text-sm">Connect your MT4/MT5 account to get started</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                    <div>
+                      <p className="font-medium">{account.broker}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Account: {account.login}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">
+                        {formatCurrency(account.currentBalance)}
+                      </p>
+                      <p
+                        className={`text-sm ${
+                          account.profit >= 0 ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {formatCurrency(account.profit)}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={
+                        account.status === "ACTIVE" ? "success" : "secondary"
+                      }
+                    >
+                      {account.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Wallet className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No active accounts yet</p>
+                <p className="text-sm">Connect your MT4/MT5 account to get started</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </SubscriptionGuard>
   )
 }
 
