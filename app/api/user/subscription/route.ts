@@ -18,7 +18,7 @@ export async function GET() {
       where: { email: session.user.email },
       select: {
         plan: true,
-        subscriptionStatus: true,
+        status: true,
         currentPeriodEnd: true,
       },
     })
@@ -32,8 +32,8 @@ export async function GET() {
 
     // Check if user has active subscription
     const hasActiveSubscription =
-      user.subscriptionStatus === 'ACTIVE' ||
-      user.subscriptionStatus === 'TRIALING'
+      user.status === 'ACTIVE' ||
+      user.status === 'TRIALING'
 
     // Check if subscription is valid (not expired for non-active statuses)
     const isSubscriptionValid = hasActiveSubscription &&
@@ -42,7 +42,7 @@ export async function GET() {
 
     return NextResponse.json({
       plan: user.plan,
-      status: user.subscriptionStatus,
+      status: user.status,
       currentPeriodEnd: user.currentPeriodEnd,
       hasActiveSubscription,
       isSubscriptionValid,
