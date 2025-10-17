@@ -114,8 +114,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     data: {
       stripeCustomerId: session.customer as string,
       plan: plan || 'FREE',
-      status: 'TRIAL',
-      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+      status: 'ACTIVE',
     },
   })
 }
@@ -133,46 +132,77 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 
   console.log(`[Stripe Webhook] Subscription update for user ${userId}, status: ${subscription.status} -> ${status}`)
 
-  // Type assertion for subscription fields
+  // Type assertion to access fields that exist but aren't in the type definition
   const sub = subscription as any
 
-  // Update or create subscription record
-  await db.subscription.upsert({
-    where: { userId },
-    create: {
-      userId,
-      stripeSubscriptionId: subscription.id,
-      stripePriceId: subscription.items.data[0]?.price.id,
-      stripeCurrentPeriodEnd: new Date(sub.current_period_end * 1000),
-      plan: plan || 'FREE',
-      status,
-      cancelAtPeriodEnd: sub.cancel_at_period_end || false,
-    },
-    update: {
-      stripeSubscriptionId: subscription.id,
-      stripePriceId: subscription.items.data[0]?.price.id,
-      stripeCurrentPeriodEnd: new Date(sub.current_period_end * 1000),
-      plan: plan || 'FREE',
-      status,
-      cancelAtPeriodEnd: sub.cancel_at_period_end || false,
-      canceledAt: sub.canceled_at
-        ? new Date(sub.canceled_at * 1000)
-        : null,
-    },
-  })
+  // Extract dates with proper null checks
+  const currentPeriodEnd = sub.current_period_end && typeof sub.current_period_end === 'number'
+    ? new Date(sub.current_period_end * 1000)
+    : null
+  const currentPeriodStart = sub.current_period_start && typeof sub.current_period_start === 'number'
+    ? new Date(sub.current_period_start * 1000)
+    : null
+  const canceledAt = sub.canceled_at && typeof sub.canceled_at === 'number'
+    ? new Date(sub.canceled_at * 1000)
+    : null
 
-  // Update user record
-  await db.user.update({
-    where: { id: userId },
-    data: {
-      plan: plan || 'FREE',
-      status,
-      subscriptionId: subscription.id,
-      currentPeriodStart: new Date(sub.current_period_start * 1000),
-      currentPeriodEnd: new Date(sub.current_period_end * 1000),
-      cancelAtPeriodEnd: sub.cancel_at_period_end || false,
-    },
-  })
+  // DEBUG: Log values
+  console.log(`[Stripe Webhook] Raw period_end: ${sub.current_period_end}, Converted: ${currentPeriodEnd?.toISOString()}`)
+  console.log(`[Stripe Webhook] Raw period_start: ${sub.current_period_start}, Converted: ${currentPeriodStart?.toISOString()}`)
+  console.log(`[Stripe Webhook] Subscription ID: ${subscription.id}`)
+  console.log(`[Stripe Webhook] Price ID: ${subscription.items.data[0]?.price.id}`)
+
+  // Get plan from metadata or default to STARTER
+  const subscriptionPlan: SubscriptionPlan = plan && ['STARTER', 'PRO', 'ENTERPRISE'].includes(plan)
+    ? plan
+    : 'STARTER'
+
+  console.log(`[Stripe Webhook] Using plan: ${subscriptionPlan}`)
+
+  try {
+    // Update or create subscription record
+    const subscriptionRecord = await db.subscription.upsert({
+      where: { userId },
+      create: {
+        userId,
+        stripeSubscriptionId: subscription.id,
+        stripePriceId: subscription.items.data[0]?.price.id,
+        stripeCurrentPeriodEnd: currentPeriodEnd,
+        plan: subscriptionPlan,
+        status,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+      },
+      update: {
+        stripeSubscriptionId: subscription.id,
+        stripePriceId: subscription.items.data[0]?.price.id,
+        stripeCurrentPeriodEnd: currentPeriodEnd,
+        plan: subscriptionPlan,
+        status,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+        canceledAt: canceledAt,
+      },
+    })
+
+    console.log(`[Stripe Webhook] Subscription record updated: ${subscriptionRecord.id}, stripeCurrentPeriodEnd: ${subscriptionRecord.stripeCurrentPeriodEnd?.toISOString()}`)
+
+    // Update user record
+    const userRecord = await db.user.update({
+      where: { id: userId },
+      data: {
+        plan: subscriptionPlan,
+        status,
+        subscriptionId: subscription.id,
+        currentPeriodStart: currentPeriodStart,
+        currentPeriodEnd: currentPeriodEnd,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+      },
+    })
+
+    console.log(`[Stripe Webhook] User record updated: ${userRecord.id}, currentPeriodEnd: ${userRecord.currentPeriodEnd?.toISOString()}`)
+  } catch (error) {
+    console.error('[Stripe Webhook] Database update error:', error)
+    throw error
+  }
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -211,8 +241,11 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   const subscriptionId = inv.subscription as string
 
   if (!subscriptionId) {
+    console.log('[Stripe Webhook] Invoice has no subscription, skipping')
     return
   }
+
+  console.log(`[Stripe Webhook] Processing paid invoice: ${invoice.id}`)
 
   // Find subscription to get userId
   const subscription = await db.subscription.findFirst({
@@ -220,25 +253,42 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   })
 
   if (!subscription) {
-    console.error(`[Stripe Webhook] Subscription not found for invoice: ${invoice.id}`)
+    console.error(`[Stripe Webhook] Subscription not found for invoice: ${invoice.id}, subscriptionId: ${subscriptionId}`)
     return
   }
 
-  console.log(`[Stripe Webhook] Invoice paid: ${invoice.id}`)
+  console.log(`[Stripe Webhook] Found subscription: ${subscription.id} for user: ${subscription.userId}`)
 
-  // Create invoice record
-  await db.invoice.create({
-    data: {
-      subscriptionId: subscription.id,
-      stripeInvoiceId: invoice.id,
-      amount: inv.amount_paid / 100, // Convert from cents to dollars
-      currency: inv.currency.toUpperCase(),
-      status: 'paid',
-      paidAt: inv.status_transitions?.paid_at
-        ? new Date(inv.status_transitions.paid_at * 1000)
-        : new Date(),
-    },
-  })
+  try {
+    // Check if invoice already exists
+    const existingInvoice = await db.invoice.findUnique({
+      where: { stripeInvoiceId: invoice.id },
+    })
+
+    if (existingInvoice) {
+      console.log(`[Stripe Webhook] Invoice ${invoice.id} already exists, skipping`)
+      return
+    }
+
+    // Create invoice record
+    const createdInvoice = await db.invoice.create({
+      data: {
+        subscriptionId: subscription.id,
+        stripeInvoiceId: invoice.id,
+        amount: inv.amount_paid, // Store in cents as received from Stripe
+        currency: inv.currency.toUpperCase(),
+        status: 'paid',
+        paidAt: inv.status_transitions?.paid_at
+          ? new Date(inv.status_transitions.paid_at * 1000)
+          : new Date(),
+      },
+    })
+
+    console.log(`[Stripe Webhook] Invoice created: ${createdInvoice.id}, amount: ${createdInvoice.amount} ${createdInvoice.currency}`)
+  } catch (error) {
+    console.error('[Stripe Webhook] Error creating invoice:', error)
+    throw error
+  }
 }
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {

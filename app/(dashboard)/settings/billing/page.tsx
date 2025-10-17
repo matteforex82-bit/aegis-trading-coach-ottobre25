@@ -6,9 +6,10 @@ import { db } from '@/lib/db'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, XCircle, ArrowUpCircle, CreditCard, Calendar, AlertCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, CreditCard, Calendar, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { BillingManagement } from '@/components/billing/BillingManagement'
+import { PlanActions } from '@/components/billing/PlanActions'
 
 export const metadata: Metadata = {
   title: 'Billing - Settings',
@@ -201,21 +202,7 @@ export default async function BillingPage() {
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
-            {user.plan !== 'ENTERPRISE' && (
-              <Link href="/pricing">
-                <Button className="flex items-center gap-2">
-                  <ArrowUpCircle className="h-4 w-4" />
-                  Upgrade Plan
-                </Button>
-              </Link>
-            )}
-            {user.plan !== 'FREE' && (
-              <Link href="/pricing">
-                <Button variant="outline">Change Plan</Button>
-              </Link>
-            )}
-          </div>
+          <PlanActions currentPlan={user.plan} />
         </CardContent>
       </Card>
 
