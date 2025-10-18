@@ -19,9 +19,7 @@ import { PrismaClient, SubscriptionPlan, SubscriptionStatus } from '@prisma/clie
 // Load environment variables from .env.local
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') })
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia',
-})
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 const db = new PrismaClient()
 
