@@ -11,14 +11,18 @@ import {
   BookOpen,
   Settings,
   Shield,
+  Target,
+  StickyNote,
 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Accounts", href: "/dashboard/accounts", icon: Wallet },
   { name: "Trades", href: "/dashboard/trades", icon: TrendingUp },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-  { name: "Journal", href: "/dashboard/journal", icon: BookOpen },
+  { name: "Trading Room", href: "/dashboard/trading-room", icon: Target, isPremium: true },
+  { name: "My Notes", href: "/dashboard/journal", icon: StickyNote },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ]
 
@@ -48,7 +52,12 @@ export function Sidebar() {
               )}
             >
               <item.icon className="h-5 w-5" />
-              {item.name}
+              <span className="flex-1">{item.name}</span>
+              {item.isPremium && (
+                <Badge variant="secondary" className="text-xs bg-gradient-to-r from-primary to-purple-600 text-white">
+                  PRO
+                </Badge>
+              )}
             </Link>
           )
         })}

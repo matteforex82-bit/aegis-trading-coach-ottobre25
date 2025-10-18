@@ -244,6 +244,70 @@ model JournalEntry {
 }
 
 // =============================================================================
+// TRADING ROOM - Premium Feature
+// =============================================================================
+
+enum AssetCategory {
+  FOREX
+  INDICES
+  COMMODITIES
+  BITCOIN
+}
+
+enum SetupDirection {
+  BUY
+  SELL
+  NEUTRAL
+}
+
+model TradingSetup {
+  id              String            @id @default(cuid())
+
+  // Categorizzazione
+  category        AssetCategory
+  symbol          String            // "EURUSD", "US30", "XAUUSD", "BTCUSD"
+
+  // Setup Info
+  direction       SetupDirection
+  timeframe       String            // "4h", "1D", "3D", "8h"
+
+  // Elliott Wave Analysis
+  wavePattern     String?           // "Wave 3 Impulse", "ABC Correction"
+  waveCount       String?           // "1-2-3-4-5", "A-B-C"
+
+  // Price Levels
+  entryPrice      Float
+  stopLoss        Float
+  takeProfit1     Float?
+  takeProfit2     Float?
+  takeProfit3     Float?
+  invalidation    Float?            // Prezzo invalidazione setup
+
+  // Metadata
+  analysisDate    DateTime          // Data dell'analisi Elliott
+  publishedAt     DateTime          @default(now())
+  expiresAt       DateTime?         // Setup scade dopo X giorni (opzionale)
+  notes           String?           @db.Text
+  pdfUrl          String?           // Link al PDF originale (opzionale)
+
+  // Premium Feature Control
+  isPremium       Boolean           @default(true)
+  requiredPlan    SubscriptionPlan  @default(PRO)
+
+  // Stato
+  isActive        Boolean           @default(true)
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@index([publishedAt])
+  @@index([analysisDate])
+  @@map("trading_setups")
+}
+
+// =============================================================================
 // API KEYS (for MT5 EA authentication)
 // =============================================================================
 
