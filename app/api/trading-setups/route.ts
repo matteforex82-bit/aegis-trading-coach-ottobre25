@@ -32,24 +32,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
+    // TEMPORARY: Allow all authenticated users for testing
+    // TODO: Re-enable subscription check for production
     // Check if user has PRO or ENTERPRISE subscription
-    const hasAccess =
-      (user.plan === "PRO" || user.plan === "ENTERPRISE") &&
-      user.status === "ACTIVE" &&
-      user.currentPeriodEnd &&
-      new Date(user.currentPeriodEnd) > new Date()
+    // const hasAccess =
+    //   (user.plan === "PRO" || user.plan === "ENTERPRISE") &&
+    //   user.status === "ACTIVE" &&
+    //   user.currentPeriodEnd &&
+    //   new Date(user.currentPeriodEnd) > new Date()
 
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          error: "Premium subscription required",
-          message: "Trading Room is available for PRO and ENTERPRISE plans only",
-          requiredPlan: "PRO",
-          currentPlan: user.plan,
-        },
-        { status: 403 }
-      )
-    }
+    // if (!hasAccess) {
+    //   return NextResponse.json(
+    //     {
+    //       error: "Premium subscription required",
+    //       message: "Trading Room is available for PRO and ENTERPRISE plans only",
+    //       requiredPlan: "PRO",
+    //       currentPlan: user.plan,
+    //     },
+    //     { status: 403 }
+    //   )
+    // }
 
     // Get query parameters
     const { searchParams } = new URL(request.url)
