@@ -6,7 +6,7 @@ import { Check } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Pricing - AEGIS Trading Coach',
-  description: 'Choose the perfect plan for your trading journey. Start with a 14-day free trial.',
+  description: 'Choose the perfect plan for your trading journey. Simple, transparent pricing.',
 }
 
 const plans = [
@@ -43,7 +43,7 @@ const plans = [
       'Email Support',
       'MT5/MT4 Integration',
     ],
-    cta: 'Start Free Trial',
+    cta: 'Subscribe Now',
     href: '/auth/signup?plan=starter',
     popular: false,
   },
@@ -62,7 +62,7 @@ const plans = [
       'Custom Alerts',
       'Export Reports',
     ],
-    cta: 'Start Free Trial',
+    cta: 'Subscribe Now',
     href: '/auth/signup?plan=pro',
     popular: true,
   },
@@ -120,10 +120,10 @@ export default function PricingPage() {
           Simple, Transparent Pricing
         </h1>
         <p className="text-xl text-muted-foreground mb-2">
-          Start with a 14-day free trial. No credit card required.
+          Choose the plan that fits your trading needs
         </p>
         <p className="text-sm text-muted-foreground">
-          All paid plans include full access during trial period
+          All plans include immediate access to all features
         </p>
       </section>
 
@@ -208,10 +208,10 @@ export default function PricingPage() {
             </div>
             <div>
               <h3 className="text-lg font-semibold mb-2">
-                What happens after the trial?
+                How does billing work?
               </h3>
               <p className="text-muted-foreground">
-                After your 14-day trial, you'll be automatically subscribed to your chosen plan. You can cancel anytime before the trial ends with no charges.
+                You'll be charged immediately upon subscription. Your subscription renews monthly until you cancel. You can cancel anytime from your dashboard.
               </p>
             </div>
             <div>
@@ -251,7 +251,7 @@ export default function PricingPage() {
           </p>
           <Link href="/auth/signup">
             <Button size="lg" className="px-8">
-              Start Your Free Trial
+              Get Started Now
             </Button>
           </Link>
         </div>

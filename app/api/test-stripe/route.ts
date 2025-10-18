@@ -24,7 +24,6 @@ export async function GET() {
     let stripeClient: Stripe
     try {
       stripeClient = new Stripe(secretKey, {
-        apiVersion: '2024-11-20' as any,
         typescript: true,
       })
     } catch (initError: any) {
@@ -67,6 +66,9 @@ export async function GET() {
           message: apiError.message,
           statusCode: apiError.statusCode,
           raw: apiError.raw?.message,
+          stack: apiError.stack?.substring(0, 500),
+          requestId: apiError.requestId,
+          headers: apiError.headers,
         },
         tests: {
           envVarExists: true,

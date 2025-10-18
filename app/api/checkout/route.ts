@@ -120,7 +120,6 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           plan: PLAN_TO_ENUM[plan],
         },
-        trial_period_days: 14, // 14-day free trial
       },
       allow_promotion_codes: true,
     })
