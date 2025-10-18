@@ -35,10 +35,12 @@ export async function GET() {
       user.status === 'ACTIVE' ||
       user.status === 'TRIAL'
 
-    // Check if subscription is valid (not expired for non-active statuses)
-    const isSubscriptionValid = hasActiveSubscription &&
-      user.currentPeriodEnd &&
-      new Date(user.currentPeriodEnd) > new Date()
+    // Check if subscription is valid
+    // For ACTIVE status, we trust Stripe's status
+    // For TRIAL status, we check the period end date
+    const isSubscriptionValid =
+      user.status === 'ACTIVE' ||
+      (user.status === 'TRIAL' && user.currentPeriodEnd && new Date(user.currentPeriodEnd) > new Date())
 
     return NextResponse.json({
       plan: user.plan,
@@ -46,6 +48,7 @@ export async function GET() {
       currentPeriodEnd: user.currentPeriodEnd,
       hasActiveSubscription,
       isSubscriptionValid,
+      isExistingUser: true, // User is authenticated and exists in DB
     })
   } catch (error) {
     console.error('Subscription check error:', error)
