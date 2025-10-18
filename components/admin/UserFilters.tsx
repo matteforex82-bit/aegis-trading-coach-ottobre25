@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Search, X } from 'lucide-react'
+import { Search, X, Trash2 } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -20,6 +20,18 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { useToast } from '@/components/ui/use-toast'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { User, Mail, Calendar } from 'lucide-react'
 
@@ -48,6 +60,11 @@ export function UserFilters({ users }: UserFiltersProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [planFilter, setPlanFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
+  const [deletingUser, setDeletingUser] = useState<User | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const { toast } = useToast()
+  const router = useRouter()
 
   // Filter and search users
   const filteredUsers = useMemo(() => {
@@ -72,6 +89,48 @@ export function UserFilters({ users }: UserFiltersProps) {
     setSearchQuery('')
     setPlanFilter('all')
     setStatusFilter('all')
+  }
+
+  const handleDeleteClick = (user: User) => {
+    setDeletingUser(user)
+    setDeletingUserId(user.id)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingUserId) return
+
+    try {
+      setIsDeleting(true)
+
+      const response = await fetch(`/api/admin/users/${deletingUserId}/delete`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete user')
+      }
+
+      toast({
+        title: 'Success',
+        description: `User ${deletingUser?.email} deleted successfully`,
+      })
+
+      // Refresh the page to show updated list
+      router.refresh()
+    } catch (error: any) {
+      console.error('Error deleting user:', error)
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete user',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+      setDeletingUserId(null)
+      setDeletingUser(null)
+    }
   }
 
   const hasActiveFilters = searchQuery !== '' || planFilter !== 'all' || statusFilter !== 'all'
@@ -234,17 +293,60 @@ export function UserFilters({ users }: UserFiltersProps) {
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Link href={`/admin/users/${user.id}`}>
-                    <Button variant="ghost" size="sm">
-                      View Details
+                  <div className="flex items-center justify-end gap-2">
+                    <Link href={`/admin/users/${user.id}`}>
+                      <Button variant="ghost" size="sm">
+                        View Details
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteClick(user)}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                  </Link>
+                  </div>
                 </TableCell>
               </TableRow>
             ))
           )}
         </TableBody>
       </Table>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingUserId} onOpenChange={(open) => !open && setDeletingUserId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the user{' '}
+              <span className="font-semibold text-foreground">{deletingUser?.email}</span>
+              {' '}and all their data including:
+              <ul className="mt-2 list-disc list-inside space-y-1">
+                <li>Trading accounts</li>
+                <li>Trade history</li>
+                <li>Journal entries</li>
+                <li>Subscription data</li>
+              </ul>
+              <p className="mt-3 font-semibold text-destructive">
+                This action cannot be undone.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete User'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
