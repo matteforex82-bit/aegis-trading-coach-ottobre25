@@ -6,7 +6,7 @@ import { db } from '@/lib/db'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, XCircle, CreditCard, Calendar, AlertCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, CreditCard, Calendar, AlertCircle, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { BillingManagement } from '@/components/billing/BillingManagement'
 import { PlanActions } from '@/components/billing/PlanActions'
@@ -124,6 +124,12 @@ export default async function BillingPage() {
   return (
     <div className="space-y-6">
       <div>
+        <Button variant="ghost" size="sm" asChild className="mb-4">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Link>
+        </Button>
         <h1 className="text-3xl font-bold">Billing & Subscription</h1>
         <p className="text-muted-foreground mt-2">
           Manage your subscription plan and billing information
