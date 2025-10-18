@@ -1,6 +1,8 @@
 import { Metadata } from 'next'
+import Link from 'next/link'
 import { db } from '@/lib/db'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import {
   Users,
   DollarSign,
@@ -9,6 +11,11 @@ import {
   Activity,
   CreditCard,
   AlertCircle,
+  Target,
+  Percent,
+  Zap,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
@@ -18,6 +25,15 @@ export const metadata: Metadata = {
 }
 
 async function getAdminStats() {
+  // Date ranges
+  const now = new Date()
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+  const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+
   // Total users by plan
   const usersByPlan = await db.user.groupBy({
     by: ['plan'],
@@ -34,9 +50,6 @@ async function getAdminStats() {
   const totalUsers = await db.user.count()
 
   // Users created in last 30 days
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
   const newUsersLast30Days = await db.user.count({
     where: {
       createdAt: {
@@ -131,6 +144,99 @@ async function getAdminStats() {
     },
   })
 
+  // === ADVANCED METRICS ===
+
+  // Churn Rate % (monthly)
+  const payingUsersStartOfMonth = await db.user.count({
+    where: {
+      plan: { not: 'FREE' },
+      status: { in: ['ACTIVE', 'TRIAL'] },
+      createdAt: { lt: startOfThisMonth },
+    },
+  })
+  const churnRate = payingUsersStartOfMonth > 0
+    ? (canceledLast30Days / payingUsersStartOfMonth) * 100
+    : 0
+
+  // ARPU (Average Revenue Per User)
+  const arpu = activeSubscriptions > 0 ? mrr / activeSubscriptions : 0
+
+  // MRR Last Month (for growth calculation)
+  const paidSubscriptionsLastMonth = await db.user.findMany({
+    where: {
+      plan: { not: 'FREE' },
+      status: 'ACTIVE',
+      createdAt: { lt: startOfThisMonth },
+    },
+    select: { plan: true },
+  })
+
+  const mrrLastMonth = paidSubscriptionsLastMonth.reduce((sum, sub) => {
+    return sum + (planPrices[sub.plan as keyof typeof planPrices] || 0)
+  }, 0)
+
+  // MRR Growth Rate
+  const mrrGrowthRate = mrrLastMonth > 0
+    ? ((mrr - mrrLastMonth) / mrrLastMonth) * 100
+    : 0
+
+  // Customer Lifetime Value (CLV) - simplified
+  // Average months a customer stays (estimate based on churn)
+  const avgCustomerLifespanMonths = churnRate > 0 ? 100 / churnRate : 12
+  const clv = arpu * avgCustomerLifespanMonths
+
+  // Net Revenue Retention (NRR) - simplified
+  // Tracks expansion vs contraction
+  const nrr = mrrLastMonth > 0
+    ? (mrr / mrrLastMonth) * 100
+    : 100
+
+  // === AT-RISK CUSTOMERS ===
+
+  const threeDaysFromNow = new Date()
+  threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3)
+
+  // Get at-risk customers
+  const atRiskCustomers = await db.user.findMany({
+    where: {
+      OR: [
+        // Payment failed
+        { status: 'PAST_DUE' },
+        // Subscription ending soon
+        {
+          cancelAtPeriodEnd: true,
+          currentPeriodEnd: {
+            lte: threeDaysFromNow,
+          },
+        },
+        // Trial ending soon (< 3 days)
+        {
+          status: 'TRIAL',
+          trialEndsAt: {
+            lte: threeDaysFromNow,
+            gte: now,
+          },
+        },
+      ],
+      plan: { not: 'FREE' }, // Only paying/trial customers
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      plan: true,
+      status: true,
+      currentPeriodEnd: true,
+      trialEndsAt: true,
+      cancelAtPeriodEnd: true,
+      createdAt: true,
+    },
+    orderBy: {
+      currentPeriodEnd: 'asc', // Soonest expiry first
+    },
+    take: 10,
+  })
+
   return {
     totalUsers,
     newUsersLast30Days,
@@ -145,6 +251,15 @@ async function getAdminStats() {
     recentUsers,
     pastDueCount,
     canceledLast30Days,
+    // Advanced metrics
+    churnRate,
+    arpu,
+    mrrGrowthRate,
+    clv,
+    nrr,
+    mrrLastMonth,
+    // At-risk customers
+    atRiskCustomers,
   }
 }
 
@@ -221,16 +336,81 @@ export default async function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Churn/Issues */}
+        {/* Churn Rate */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Issues</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Churn Rate</CardTitle>
+            <Percent className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.pastDueCount}</div>
+            <div className="text-2xl font-bold">{stats.churnRate.toFixed(1)}%</div>
             <p className="text-xs text-muted-foreground">
-              Past due • {stats.canceledLast30Days} churned (30d)
+              {stats.canceledLast30Days} churned (30d) • {stats.pastDueCount} past due
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Advanced KPIs - Second Row */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* CLV */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Customer LTV</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${stats.clv.toFixed(0)}</div>
+            <p className="text-xs text-muted-foreground">
+              Lifetime value per customer
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* ARPU */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">ARPU</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${stats.arpu.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">
+              Average revenue per user/month
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* NRR */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">NRR</CardTitle>
+            <Zap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.nrr.toFixed(0)}%</div>
+            <p className="text-xs text-muted-foreground">
+              Net revenue retention rate
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* MRR Growth */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">MRR Growth</CardTitle>
+            {stats.mrrGrowthRate >= 0 ? (
+              <ArrowUpRight className="h-4 w-4 text-green-600" />
+            ) : (
+              <ArrowDownRight className="h-4 w-4 text-red-600" />
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${stats.mrrGrowthRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {stats.mrrGrowthRate >= 0 ? '+' : ''}{stats.mrrGrowthRate.toFixed(1)}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Month-over-month growth
             </p>
           </CardContent>
         </Card>
@@ -293,6 +473,79 @@ export default async function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* At-Risk Customers */}
+      {stats.atRiskCustomers.length > 0 && (
+        <Card className="border-orange-200 dark:border-orange-900">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-orange-600" />
+                  At-Risk Customers
+                </CardTitle>
+                <CardDescription>Customers requiring attention</CardDescription>
+              </div>
+              <Badge variant="destructive">{stats.atRiskCustomers.length}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {stats.atRiskCustomers.map((user) => {
+                // Determine risk reason and level
+                let riskReason = ''
+                let riskLevel: 'high' | 'medium' = 'medium'
+
+                if (user.status === 'PAST_DUE') {
+                  riskReason = 'Payment Failed'
+                  riskLevel = 'high'
+                } else if (user.cancelAtPeriodEnd) {
+                  const daysLeft = user.currentPeriodEnd
+                    ? Math.ceil((new Date(user.currentPeriodEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                    : 0
+                  riskReason = `Canceling in ${daysLeft} days`
+                  riskLevel = daysLeft <= 1 ? 'high' : 'medium'
+                } else if (user.trialEndsAt) {
+                  const daysLeft = Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                  riskReason = `Trial ends in ${daysLeft} days`
+                  riskLevel = daysLeft <= 1 ? 'high' : 'medium'
+                }
+
+                return (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between border-b pb-3 last:border-0"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium">{user.name || 'No name'}</div>
+                        <Badge
+                          variant={riskLevel === 'high' ? 'destructive' : 'secondary'}
+                          className="text-xs"
+                        >
+                          {riskLevel === 'high' ? '🔴 High Risk' : '🟡 At Risk'}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground">{user.email}</div>
+                      <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                        {riskReason}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="outline">{user.plan}</Badge>
+                      <Link href={`/admin/users/${user.id}`}>
+                        <Button variant="ghost" size="sm">
+                          View
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Users */}
       <Card>
