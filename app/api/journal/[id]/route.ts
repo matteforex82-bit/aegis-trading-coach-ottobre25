@@ -6,7 +6,7 @@ import { db } from "@/lib/db"
 // GET - Get single journal entry
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -15,8 +15,10 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { id } = await params
+
     const entry = await db.journalEntry.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!entry) {
@@ -44,7 +46,7 @@ export async function GET(
 // PATCH - Update journal entry
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -53,9 +55,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { id } = await params
+
     // Check if entry exists and user owns it
     const existing = await db.journalEntry.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!existing) {
@@ -105,7 +109,7 @@ export async function PATCH(
 
     // Update entry
     const entry = await db.journalEntry.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData
     })
 
@@ -122,7 +126,7 @@ export async function PATCH(
 // DELETE - Delete journal entry
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -131,9 +135,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { id } = await params
+
     // Check if entry exists and user owns it
     const existing = await db.journalEntry.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!existing) {
@@ -149,7 +155,7 @@ export async function DELETE(
 
     // Delete entry
     await db.journalEntry.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({ success: true }, { status: 200 })
