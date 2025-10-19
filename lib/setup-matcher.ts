@@ -107,18 +107,18 @@ function hasSignificantChanges(
 /**
  * Compare two prices with float epsilon tolerance
  */
-function pricesEqual(a: number | null, b: number | null): boolean {
-  if (a === null && b === null) return true
-  if (a === null || b === null) return false
+function pricesEqual(a: number | null | undefined, b: number | null | undefined): boolean {
+  if ((a === null || a === undefined) && (b === null || b === undefined)) return true
+  if (a === null || a === undefined || b === null || b === undefined) return false
   return Math.abs(a - b) < 0.00001
 }
 
 /**
  * Compare two dates (ignoring time component)
  */
-function datesEqual(a: Date | null, b: Date | null): boolean {
-  if (a === null && b === null) return true
-  if (a === null || b === null) return false
+function datesEqual(a: Date | null | undefined, b: Date | null | undefined): boolean {
+  if ((a === null || a === undefined) && (b === null || b === undefined)) return true
+  if (a === null || a === undefined || b === null || b === undefined) return false
 
   const dateA = new Date(a)
   const dateB = new Date(b)

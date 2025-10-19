@@ -15,6 +15,7 @@ export function ImportSetupsTab({ onSuccess }: { onSuccess?: () => void }) {
   const [fileName, setFileName] = useState<string | null>(null)
   const [previewData, setPreviewData] = useState<any>(null)
   const [dragActive, setDragActive] = useState(false)
+  const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
@@ -108,7 +109,7 @@ export function ImportSetupsTab({ onSuccess }: { onSuccess?: () => void }) {
   const handleConfirmImport = async () => {
     if (!yamlContent) return
 
-    setUploadState("importing")
+    setImporting(true)
 
     try {
       const response = await fetch("/api/admin/trading-setups/bulk-import", {
@@ -125,6 +126,7 @@ export function ImportSetupsTab({ onSuccess }: { onSuccess?: () => void }) {
       const data = await response.json()
 
       setUploadState("success")
+      setImporting(false)
 
       toast({
         title: "Import successful!",
@@ -144,7 +146,7 @@ export function ImportSetupsTab({ onSuccess }: { onSuccess?: () => void }) {
         description: error.message || "Failed to import trading setups",
         variant: "destructive",
       })
-      setUploadState("previewing")
+      setImporting(false)
     }
   }
 
@@ -192,7 +194,7 @@ export function ImportSetupsTab({ onSuccess }: { onSuccess?: () => void }) {
         parseErrors={previewData.parseErrors}
         onConfirm={handleConfirmImport}
         onCancel={handleCancel}
-        loading={uploadState === "importing"}
+        loading={importing}
       />
     )
   }
