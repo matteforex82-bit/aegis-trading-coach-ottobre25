@@ -46,4 +46,10 @@ test-*.js
 # prisma
 /prisma/migrations
 
+# data files (YAML imports - keep .example files)
+/data/*.yml
+/data/*.yaml
+!/data/*.example.yml
+!/data/*.example.yaml
+
 .vercel

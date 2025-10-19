@@ -1,0 +1,186 @@
+# =============================================================================
+# AEGIS Trading Coach - Elliott Wave Setups Import File
+# =============================================================================
+# Version: 1.0
+# Last Updated: 2025-10-19
+#
+# INSTRUCTIONS:
+# 1. Fill in your trading setups following the format below
+# 2. Save this file as "trading-setups.yml" (remove .example)
+# 3. Upload it via Admin Trading Room > Import tab
+# 4. Review the preview and confirm import
+#
+# YAML SYNTAX TIPS:
+# - Use 2 spaces for indentation (not tabs)
+# - Strings with special chars should be quoted: "Wave (3)"
+# - Multi-line notes use the pipe symbol: |
+# - Dates in ISO format: YYYY-MM-DD
+# - Numbers without quotes: 1.23456
+# =============================================================================
+
+# Optional metadata (for tracking purposes)
+metadata:
+  version: "1.0"
+  author: "AEGIS Trading Team"
+  importDate: "2025-10-19"
+  source: "Elliott Wave Analysis - October 2025"
+  pdfUrl: "https://your-storage.com/analysis-oct-2025.pdf"  # Optional
+
+# =============================================================================
+# TRADING SETUPS
+# =============================================================================
+setups:
+  # ---------------------------------------------------------------------------
+  # SETUP 1: AUD/USD - Wave 3 Impulse
+  # ---------------------------------------------------------------------------
+  - category: FOREX              # Required | Values: FOREX, INDICES, COMMODITIES, BITCOIN
+    symbol: AUDUSD               # Required | Will be auto-capitalized
+    direction: BUY               # Required | Values: BUY, SELL, NEUTRAL
+    timeframe: 8h                # Required | Examples: "1h", "4h", "8h", "1D", "1W"
+
+    # Elliott Wave Information
+    wavePattern: "Wave 3 Impulse"              # Optional
+    waveCount: "3 of (3)"                      # Optional
+
+    # Price Levels (all prices are decimal numbers)
+    entryPrice: 0.65234          # Required | Entry price
+    stopLoss: 0.64135            # Required | Stop loss price
+    takeProfit1: 0.66500         # Optional | First take profit
+    takeProfit2: 0.68000         # Optional | Second take profit
+    takeProfit3: 0.70000         # Optional | Third take profit
+    invalidation: 0.64135        # Optional | Setup invalidation price
+
+    # Dates
+    analysisDate: "2025-10-19"   # Required | Format: YYYY-MM-DD
+    expiresAt: "2025-11-19"      # Optional | Setup expiration date
+
+    # Additional Information
+    notes: |                     # Optional | Multi-line text using |
+      Setup ad alta probabilità basato sul completamento della Wave 2
+      (Leading Diagonal) e l'inizio atteso della Wave 3 Impulse.
+      L'Invalidation Price è il livello che, se rotto, ci fa passare
+      allo scenario di correzione più complessa.
+
+    pdfUrl: "https://storage.example.com/aud-usd-analysis.pdf"  # Optional
+
+    # Premium Control (optional, has defaults)
+    isPremium: true              # Optional | Default: true
+    requiredPlan: PRO            # Optional | Values: FREE, STARTER, PRO, ENTERPRISE | Default: PRO
+    isActive: true               # Optional | Default: true
+
+  # ---------------------------------------------------------------------------
+  # SETUP 2: USD/CAD - Downward Impulse
+  # ---------------------------------------------------------------------------
+  - category: FOREX
+    symbol: USDCAD
+    direction: SELL
+    timeframe: 8h
+    wavePattern: "Downward Impulse"
+    waveCount: "Wave 1 Impulse after (Y)"
+    entryPrice: 1.39753
+    stopLoss: 1.40815
+    takeProfit1: 1.37900
+    takeProfit2: 1.35500
+    takeProfit3: 1.33971
+    invalidation: 1.40815
+    analysisDate: "2025-10-19"
+    notes: |
+      Il canale di correzione è terminato con la Wave Y.
+      Si attende un impulso ribassista. L'Entry Price è il livello di
+      conferma per l'inizio dell'impulso verso il basso (Breakout).
+      Il target TP3 corrisponde al 50.00% di Fibonacci.
+
+  # ---------------------------------------------------------------------------
+  # SETUP 3: USD/JPY - Large Triangle Correction
+  # ---------------------------------------------------------------------------
+  - category: FOREX
+    symbol: USDJPY
+    direction: SELL
+    timeframe: 8h
+    wavePattern: "Large Triangle Correction"
+    waveCount: "(E) of (D)"
+    entryPrice: 152.000
+    stopLoss: 153.285
+    takeProfit1: 147.000
+    takeProfit2: 144.000
+    takeProfit3: 139.800
+    invalidation: 153.285
+    analysisDate: "2025-10-19"
+    notes: |
+      Forte setup ribassista. La Wave (D) (come una complessa doppia
+      correzione WXY) è completa. Si attende la Wave (E) finale del
+      triangolo in formazione. L'Entry Price è stato stimato al di
+      sotto del picco per confermare l'inversione.
+
+  # ---------------------------------------------------------------------------
+  # SETUP 4: GBP/USD - Irregular Flat Correction
+  # ---------------------------------------------------------------------------
+  - category: FOREX
+    symbol: GBPUSD
+    direction: BUY
+    timeframe: 8h
+    wavePattern: "Irregular Flat Correction"
+    waveCount: "Wave 3 Impulse"
+    entryPrice: 1.34707
+    stopLoss: 1.32475
+    takeProfit1: 1.36000
+    takeProfit2: 1.37000
+    takeProfit3: 1.38000
+    invalidation: 1.32475
+    analysisDate: "2025-10-19"
+    notes: |
+      L'Irregular Flat Correction (A)-(B)-(C) sembra essersi conclusa
+      con la Wave (C) finale. L'impulso al rialzo è iniziato (Wave 1)
+      e si aspetta il completamento della Wave 2 prima dell'inizio
+      della forte Wave 3. L'Entry Price è il breakout del picco di
+      Wave 1 (1.34707).
+
+# =============================================================================
+# MORE EXAMPLES - Uncomment to use
+# =============================================================================
+
+  # INDICES Example
+  # - category: INDICES
+  #   symbol: US30
+  #   direction: BUY
+  #   timeframe: 1D
+  #   wavePattern: "Impulse Wave 5"
+  #   entryPrice: 35500
+  #   stopLoss: 35000
+  #   takeProfit1: 36000
+  #   analysisDate: "2025-10-19"
+
+  # COMMODITIES Example
+  # - category: COMMODITIES
+  #   symbol: XAUUSD
+  #   direction: SELL
+  #   timeframe: 4h
+  #   wavePattern: "ABC Correction"
+  #   entryPrice: 1950.00
+  #   stopLoss: 1965.00
+  #   takeProfit1: 1920.00
+  #   analysisDate: "2025-10-19"
+
+  # BITCOIN Example
+  # - category: BITCOIN
+  #   symbol: BTCUSD
+  #   direction: BUY
+  #   timeframe: 1D
+  #   wavePattern: "Wave 3 of (5)"
+  #   entryPrice: 45000
+  #   stopLoss: 42000
+  #   takeProfit1: 50000
+  #   takeProfit2: 55000
+  #   takeProfit3: 60000
+  #   analysisDate: "2025-10-19"
+
+# =============================================================================
+# MINIMAL SETUP EXAMPLE (only required fields)
+# =============================================================================
+  # - category: FOREX
+  #   symbol: EURUSD
+  #   direction: BUY
+  #   timeframe: 4h
+  #   entryPrice: 1.0850
+  #   stopLoss: 1.0800
+  #   analysisDate: "2025-10-19"

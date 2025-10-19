@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,8 +17,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { TradingSetupCard } from "@/components/trading-room/TradingSetupCard"
 import { TradingSetupForm } from "@/components/trading-room/TradingSetupForm"
+import { ImportSetupsTab } from "@/components/trading-room/ImportSetupsTab"
 import { useToast } from "@/components/ui/use-toast"
-import { Loader2, Plus, Shield, Target } from "lucide-react"
+import { Loader2, Plus, Shield, Upload } from "lucide-react"
 import { AssetCategory, SetupDirection } from "@prisma/client"
 
 interface TradingSetup {
@@ -49,6 +51,7 @@ export default function AdminTradingRoomPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingSetup, setEditingSetup] = useState<TradingSetup | null>(null)
   const [deletingSetupId, setDeletingSetupId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("overview")
   const { toast } = useToast()
 
   useEffect(() => {
@@ -130,6 +133,11 @@ export default function AdminTradingRoomPage() {
     setEditingSetup(null)
   }
 
+  const handleImportSuccess = () => {
+    fetchSetups()
+    setActiveTab("overview")
+  }
+
   const groupedSetups = {
     FOREX: setups.filter((s) => s.category === "FOREX"),
     INDICES: setups.filter((s) => s.category === "INDICES"),
@@ -158,11 +166,26 @@ export default function AdminTradingRoomPage() {
             Manage curated Elliott Wave trading setups for premium users
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Setup
-        </Button>
+        {activeTab === "overview" && (
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Setup
+          </Button>
+        )}
       </div>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="import">
+            <Upload className="h-4 w-4 mr-2" />
+            Import
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="mt-6 space-y-6">
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -215,37 +238,44 @@ export default function AdminTradingRoomPage() {
         </Card>
       </div>
 
-      {/* Setups List */}
-      <div className="space-y-6">
-        {Object.entries(groupedSetups).map(([category, categorySetups]) => (
-          <div key={category}>
-            <div className="flex items-center gap-2 mb-4">
-              <h2 className="text-xl font-semibold">{category}</h2>
-              <Badge variant="secondary">{categorySetups.length}</Badge>
-            </div>
+          {/* Setups List */}
+          <div className="space-y-6">
+            {Object.entries(groupedSetups).map(([category, categorySetups]) => (
+              <div key={category}>
+                <div className="flex items-center gap-2 mb-4">
+                  <h2 className="text-xl font-semibold">{category}</h2>
+                  <Badge variant="secondary">{categorySetups.length}</Badge>
+                </div>
 
-            {categorySetups.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  No {category} setups yet. Click "Add Setup" to create one.
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {categorySetups.map((setup) => (
-                  <TradingSetupCard
-                    key={setup.id}
-                    setup={setup}
-                    isAdmin={true}
-                    onEdit={handleEdit}
-                    onDelete={(id) => setDeletingSetupId(id)}
-                  />
-                ))}
+                {categorySetups.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                      No {category} setups yet. Click "Add Setup" to create one.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {categorySetups.map((setup) => (
+                      <TradingSetupCard
+                        key={setup.id}
+                        setup={setup}
+                        isAdmin={true}
+                        onEdit={handleEdit}
+                        onDelete={(id) => setDeletingSetupId(id)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            ))}
           </div>
-        ))}
-      </div>
+        </TabsContent>
+
+        {/* Import Tab */}
+        <TabsContent value="import" className="mt-6">
+          <ImportSetupsTab onSuccess={handleImportSuccess} />
+        </TabsContent>
+      </Tabs>
 
       {/* Form Dialog */}
       <TradingSetupForm
