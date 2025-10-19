@@ -47,11 +47,11 @@ export function ImportSetupsTab({ onSuccess }: { onSuccess?: () => void }) {
   }
 
   const handleFile = async (file: File) => {
-    // Validate file extension
-    if (!file.name.endsWith(".yml") && !file.name.endsWith(".yaml")) {
+    // Validate file extension (accept .yml, .yaml, and .txt)
+    if (!file.name.endsWith(".yml") && !file.name.endsWith(".yaml") && !file.name.endsWith(".txt")) {
       toast({
         title: "Invalid file type",
-        description: "Please upload a .yml or .yaml file",
+        description: "Please upload a .yml, .yaml, or .txt file containing YAML content",
         variant: "destructive",
       })
       return
@@ -268,7 +268,7 @@ export function ImportSetupsTab({ onSuccess }: { onSuccess?: () => void }) {
               ref={fileInputRef}
               type="file"
               className="hidden"
-              accept=".yml,.yaml"
+              accept=".yml,.yaml,.txt"
               onChange={handleChange}
               disabled={uploadState === "validating"}
             />
@@ -303,7 +303,7 @@ export function ImportSetupsTab({ onSuccess }: { onSuccess?: () => void }) {
                   </Button>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Supported formats: .yml, .yaml
+                  Supported formats: .yml, .yaml, .txt (containing YAML)
                 </div>
               </div>
             )}
