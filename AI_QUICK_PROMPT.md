@@ -134,6 +134,10 @@ Analizza questo grafico Elliott Wave → genera YAML formato AEGIS con tutti i s
 
 ## 🔧 Troubleshooting Rapido
 
+### **File Scaricato come .txt?**
+→ Nessun problema! La piattaforma accetta anche .txt
+→ Oppure rinomina da .txt a .yml prima dell'upload
+
 ### **Errore: "Invalid YAML"**
 → Chiedi: "Fix YAML syntax errors: [incolla YAML]"
 
