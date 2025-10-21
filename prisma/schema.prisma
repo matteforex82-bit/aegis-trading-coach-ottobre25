@@ -121,6 +121,34 @@ enum AccountStatus {
   WITHDRAWN
 }
 
+enum LockMode {
+  SOFT      // Warning only, allow modifications
+  MEDIUM    // EA auto-restores modifications
+  HARD      // EA closes account if disabled
+}
+
+enum AutomationMode {
+  MANUAL    // All trades require manual click
+  PARTIAL   // Setup configured, execution manual
+  FULL      // Setup + automatic execution at price
+}
+
+enum TradeOrderStatus {
+  PENDING   // Waiting for EA to execute
+  EXECUTED  // Successfully executed on MT5
+  FAILED    // Execution failed
+  CANCELED  // Manually canceled before execution
+}
+
+enum PropFirmProvider {
+  FTMO
+  MYFXFUNDS
+  FIVEPERCENTERS
+  FUNDEDNEXT
+  THEFUNDEDTRADER
+  OTHER
+}
+
 model TradingAccount {
   id              String        @id @default(cuid())
   userId          String
@@ -147,12 +175,29 @@ model TradingAccount {
   currency        String        @default("USD")
   leverage        Int?
   lastSyncAt      DateTime?
+
+  // Execution Layer Fields
+  lockMode        LockMode      @default(MEDIUM)
+  automationMode  AutomationMode @default(MANUAL)
+
+  // Guardian Settings
+  maxRiskPercent       Float    @default(2.0)    // Max risk per trade (%)
+  maxDailyLossPercent  Float    @default(3.0)    // Max daily loss (%)
+  maxCurrencyExposure  Float    @default(2.0)    // Max exposure per currency (%)
+
+  // Cooldown System
+  lastTradeClosedAt    DateTime?                 // Last trade close time
+  cooldownUntil        DateTime?                 // Cooldown expiry time
+  cooldownReason       String?                   // Why cooldown was triggered
+
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
 
   trades          Trade[]
   metrics         AccountMetrics[]
+  tradeOrders     TradeOrder[]
+  propFirmChallenge PropFirmChallenge?
 
   @@index([userId])
   @@index([login])
@@ -402,4 +447,107 @@ model Invoice {
 
   @@index([subscriptionId])
   @@map("invoices")
+}
+
+// =============================================================================
+// EXECUTION LAYER - Trade Management
+// =============================================================================
+
+model TradeOrder {
+  id                String            @id @default(cuid())
+  accountId         String
+  account           TradingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Order Details
+  symbol            String
+  type              String            // BUY, SELL
+  lotSize           Float
+  entryPrice        Float?            // null for market orders
+  stopLoss          Float
+  takeProfit1       Float?
+  takeProfit2       Float?
+  takeProfit3       Float?
+
+  // Risk Management
+  riskPercent       Float             // e.g., 1.0 for 1%
+  riskAmount        Float             // Calculated risk in account currency
+
+  // Execution Status
+  status            TradeOrderStatus  @default(PENDING)
+  mt5Ticket         String?           // MT5 ticket number after execution
+  executedAt        DateTime?
+  failureReason     String?
+
+  // Metadata
+  comment           String?
+  magicNumber       Int?              @default(999001) // Special magic for AEGIS trades
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([accountId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("trade_orders")
+}
+
+model PropFirmChallenge {
+  id                    String            @id @default(cuid())
+  accountId             String            @unique
+  account               TradingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Provider & Phase
+  provider              PropFirmProvider
+  phase                 String            // "Phase 1", "Phase 2", "Funded"
+
+  // Rules
+  maxDailyLossPercent   Float             // e.g., 5.0 for 5%
+  maxTotalLossPercent   Float             // e.g., 10.0 for 10%
+  profitTargetPercent   Float             // e.g., 10.0 for 10%
+  minTradingDays        Int?              // Required trading days
+  maxLotSize            Float?            // Max lot per trade
+  maxOpenTrades         Int?              // Max concurrent trades
+
+  // Tracking
+  currentDailyLoss      Float             @default(0)
+  currentTotalDrawdown  Float             @default(0)
+  currentProfit         Float             @default(0)
+  tradingDaysCompleted  Int               @default(0)
+
+  // Correlation Limits
+  maxCurrencyExposure   Float             @default(2.0) // Max % exposure per currency
+
+  // Status
+  isActive              Boolean           @default(true)
+  passedAt              DateTime?
+  failedAt              DateTime?
+  failureReason         String?
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([accountId])
+  @@index([provider])
+  @@map("prop_firm_challenges")
+}
+
+model CurrencyExposure {
+  id                String            @id @default(cuid())
+  accountId         String
+  currency          String            // USD, EUR, GBP, JPY, etc.
+
+  // Exposure Calculation
+  longExposure      Float             @default(0) // % long exposure
+  shortExposure     Float             @default(0) // % short exposure
+  netExposure       Float             @default(0) // Net exposure
+
+  // Related Positions
+  openPositions     Int               @default(0)
+  totalRisk         Float             @default(0) // Combined risk %
+
+  calculatedAt      DateTime          @default(now())
+
+  @@unique([accountId, currency])
+  @@index([accountId])
+  @@map("currency_exposures")
 }
