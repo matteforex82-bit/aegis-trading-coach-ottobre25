@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge"
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Accounts", href: "/dashboard/accounts", icon: Wallet },
+  { name: "New Trade", href: "/dashboard/trade-entry", icon: TrendingUp, isNew: true },
   { name: "Trades", href: "/dashboard/trades", icon: TrendingUp },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { name: "Trading Room", href: "/dashboard/trading-room", icon: Target, isPremium: true },
@@ -67,6 +68,11 @@ export function Sidebar() {
               {item.isPremium && (
                 <Badge variant="secondary" className="text-xs bg-gradient-to-r from-primary to-purple-600 text-white">
                   PRO
+                </Badge>
+              )}
+              {item.isNew && (
+                <Badge variant="secondary" className="text-xs bg-green-600 text-white">
+                  NEW
                 </Badge>
               )}
             </Link>
