@@ -201,16 +201,292 @@ Pattern detection e cooldown system automatico.
 
 ---
 
-## 🎯 PROSSIMI STEP
+## 🎯 FEATURES COMPLETATE OGGI (22 Ottobre 2025 - Sessione 2)
 
-### **Immediate (questa settimana):**
-- [ ] Aggiungere link "New Trade" nella sidebar
-- [ ] Test utente reale + raccolta feedback
-- [ ] Verificare tutte le prop firm preset
+### **5. NAVIGATION LINK** 🔗
+Quick access al Trade Entry dalla sidebar.
+
+**Implementazione:**
+- Link "New Trade" nella sidebar tra "Accounts" e "Trades"
+- Badge verde "NEW" per visibilità
+- Icona: TrendingUp
+- Active state highlighting
+
+**Files modificati:**
+- `components/navigation/sidebar.tsx` - Aggiunto navigation item
+
+**Deploy:**
+- Commit: `eeaab87`
+- Status: ✅ LIVE in production
+
+---
+
+### **6. ELLIOTT PLAYBOOK ONE-CLICK TRADE** 📈
+Pre-fill Trade Entry form da Trading Room setups.
+
+**Implementazione:**
+- Bottone "Trade This Setup" su ogni card Trading Room
+- Color-coded: Verde (BUY) / Rosso (SELL)
+- URL parameter: `/dashboard/trade-entry?setup={setupId}`
+- Pre-fill automatico: symbol, direction, entry, SL, TP1/TP2/TP3
+- Visual indicator "Trading Room Setup" con wave pattern info
+
+**User Flow:**
+1. Click "Trade This" su setup Elliott Wave
+2. Form pre-compilato automaticamente
+3. User seleziona account + adjust risk %
+4. Submit trade
+
+**Files modificati:**
+- `components/trading-room/TradingSetupCard.tsx` - Added "Trade This" button
+- `app/dashboard/trade-entry/page.tsx` - Fetch setup from URL param (Next.js 15 Promise syntax)
+- `app/dashboard/trade-entry/trade-entry-client.tsx` - Visual indicator + pass prefilled data
+
+**Deploy:**
+- Commit: `f4475ed`
+- Status: ✅ LIVE in production
+- URL: https://aegis-trading-coach-wj0j0z0z1-matteo-negrinis-projects.vercel.app
+
+---
+
+## ❓ DECISIONI DA PRENDERE - Feature #3: Account Watcher
+
+### **Feature Overview:**
+Sistema di monitoraggio passivo che controlla il trading in tempo reale e avvisa quando si stanno per commettere errori critici. A differenza del Lock Mode (preventivo), l'Account Watcher è reattivo: ti urla di fermarti invece di bloccarti.
+
+---
+
+### **DOMANDA 1: Impostazioni Severità AEGIS** ⚙️
+
+**Dove configurare il livello di alert?**
+
+**Opzioni UI:**
+- [ ] A. Impostazioni account specifico (`/dashboard/accounts/[id]/settings`)
+- [ ] B. Impostazioni globali utente (`/dashboard/settings`)
+- [ ] C. Entrambi (globale + override per account)
+
+**Livelli Alert Proposti:**
+```
+○ INFO - Mostra tutti gli alert (anche informativi)
+○ WARNING - Solo alert importanti (>50% limiti)
+● CRITICAL - Solo alert critici (>80% limiti)
+```
+
+**Alert Preferences da includere:**
+- [ ] Sound notifications (browser beep)
+- [ ] Email alerts (solo CRITICAL)
+- [ ] Desktop notifications
+- [ ] SMS alerts (premium feature?)
+
+**Domande aperte:**
+1. Configurazione per account o globale?
+2. Quali canali di notifica implementare subito?
+3. Frequenza check (default 30 sec, configurabile?)
+
+---
+
+### **DOMANDA 2: Configurazione Regole Prop Firm Challenge** 🏆
+
+**Dove e come configurare le regole della challenge?**
+
+**Opzione A - Preset + Override:**
+```
+Select Provider: [FTMO ▼] [MyForexFunds] [The5ers] [Custom]
+  ↓ auto-fills default rules
+
+Phase: [Phase 1 ▼]
+
+Override Rules (optional):
+Max Daily Loss %: [5.0]
+Max Total DD %: [10.0]
+Profit Target %: [10.0]
+Min Trading Days: [4]
+Max Trading Days: [30]
+```
+
+**Opzione B - Completamente Manuale:**
+```
+Challenge Name: [_______________]
+Max Daily Loss %: [___]
+Max Total Drawdown %: [___]
+Profit Target %: [___]
+Min Trading Days: [___]
+Max Trading Days: [___]
+```
+
+**Opzione C - Wizard Multi-Step:**
+```
+Step 1: Quale provider? [FTMO] [MyForexFunds] [Custom]
+Step 2: Quale fase? [Phase 1] [Phase 2] [Funded]
+Step 3: Conferma regole (con preview)
+Step 4: Imposta alert preferences
+```
+
+**Domande aperte:**
+1. Preset o manuale? (Raccomandazione: Preset + override)
+2. Parte di "Add Account" o sezione separata?
+3. Modificabile dopo creazione?
+4. Challenge Tracker separato con progress real-time?
+
+**Challenge Tracker UI Proposto:**
+```
+┌─────────────────────────────────────────────┐
+│ FTMO Phase 1 - Day 12/30                    │
+├─────────────────────────────────────────────┤
+│ Daily Loss:    2.1% / 5.0%  ████░░ (42%)   │
+│ Total DD:      4.5% / 10.0% ████░░ (45%)   │
+│ Profit:        6.2% / 10.0% ██████░ (62%)  │
+│ Trading Days:  12 / 4 min   ✓ Completed    │
+│                                             │
+│ Status: ✓ ON TRACK                          │
+│ [View Details] [Modify Rules]              │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+### **DOMANDA 3: Integrazione AEGIS Severity ↔ Prop Firm** 🔗
+
+**Comportamento automatico suggerito:**
+
+**Scenario 1 - Account con Prop Firm Challenge:**
+- Auto-suggest: Alert Level = CRITICAL
+- Rationale: Challenge a rischio, servono alert massimi
+
+**Scenario 2 - Account Demo/Personal:**
+- Auto-suggest: Alert Level = WARNING
+- Rationale: Meno critico, ok educare senza stressare
+
+**Scenario 3 - Phase della Challenge:**
+- Phase 1: CRITICAL (più restrittivo)
+- Phase 2: CRITICAL (ancora critico)
+- Funded: WARNING (meno stress, ormai passed)
+
+**Domande aperte:**
+1. Auto-suggest in base al tipo account?
+2. Allow override manuale?
+3. Diversificare alert in base a fase challenge?
+
+---
+
+### **DOMANDA 4: UI/UX Location** 📍
+
+**Dove mettere questi controlli?**
+
+**Percorsi attuali:**
+- `/dashboard/accounts` - Lista account
+- `/dashboard/accounts/[id]` - Dettaglio account (non esiste ancora)
+- `/dashboard/settings` - Impostazioni globali
+
+**Proposte:**
+
+**Proposta A - Account Detail Page:**
+```
+/dashboard/accounts/[id]
+  ├─ Overview (balance, trades, stats)
+  ├─ Challenge Settings (se prop firm)
+  ├─ AEGIS Guardian Settings (lock mode, alert level)
+  └─ History
+```
+
+**Proposta B - Modal/Dialog:**
+```
+Click "Configure Challenge" → Modal popup
+- Quick setup
+- Meno navigation
+- Più immediato
+```
+
+**Proposta C - Wizard Separato:**
+```
+/dashboard/accounts/[id]/setup-challenge
+- Step-by-step guided
+- Migliore per first-time users
+- Educational
+```
+
+**Proposta D - Inline nella lista:**
+```
+/dashboard/accounts
+  [Account Card]
+    → "Configure Challenge" button
+    → Expands inline form
+```
+
+**Domande aperte:**
+1. Quale approccio UX preferisci?
+2. Serve guided wizard o preferisci quick setup?
+3. Mobile-friendly priority?
+
+---
+
+### **DOMANDA 5: Account Watcher - Alert Types** 🚨
+
+**Quali alert implementare per Feature #3?**
+
+**Alert Critici (CRITICAL - 🔴):**
+- [ ] Daily Loss > 90% del limite
+- [ ] Total Drawdown > 85% del limite
+- [ ] Revenge trade after loss < 15 min
+- [ ] Over-correlation (>200% exposure singola currency)
+
+**Alert Warning (WARNING - 🟡):**
+- [ ] Daily Loss > 70% del limite
+- [ ] Total DD > 60% del limite
+- [ ] Overtrading (3+ trade in 30 min)
+- [ ] Position size > media tua storica
+
+**Alert Info (INFO - 🟢):**
+- [ ] 2 loss consecutivi
+- [ ] Trading hours inusuali
+- [ ] Profit target quasi raggiunto
+- [ ] Challenge day milestone (es. "10/30 days completed")
+
+**Domande aperte:**
+1. Quali implementare subito vs later?
+2. Priorità: Prop firm protection o emotional trading?
+3. End-of-Day Report obbligatorio o optional?
+
+---
+
+### **DOMANDA 6: Monitoring Frequency** ⏱️
+
+**Quanto spesso fare check?**
+
+**Opzioni:**
+- [ ] A. Ogni 30 secondi (default, good balance)
+- [ ] B. Ogni 60 secondi (meno resource intensive)
+- [ ] C. Real-time via WebSocket (più complesso)
+- [ ] D. User-configurable (30s / 60s / 2min)
+
+**Considerazioni:**
+- Database load
+- User experience (quanto è "live"?)
+- Vercel serverless limits
+
+---
+
+## 🎯 PROSSIMI STEP (AGGIORNATO)
+
+### **COMPLETATI (22 Ottobre):**
+- [x] ✅ Navigation Link alla sidebar
+- [x] ✅ Elliott Playbook One-Click Trade from Trading Room
+
+### **DECISIONI NECESSARIE (prima di continuare):**
+- [ ] ❓ Rispondere alle 6 domande sopra per Feature #3
+- [ ] ❓ Scegliere approccio UI/UX
+- [ ] ❓ Definire priorità alert types
+
+### **DA IMPLEMENTARE (dopo decisioni):**
+- [ ] Feature #3: Account Watcher "Close MT5" Mode (2-3h)
+  - [ ] Backend: Monitoring logic + alert system
+  - [ ] Database: Schema updates (AccountAlert, settings)
+  - [ ] Frontend: Alert widget + configuration UI
+  - [ ] API: /api/accounts/[id]/alerts endpoint
 
 ### **Short-term (prossimi giorni):**
-- [ ] One-Click Trade from Trading Room setups
-- [ ] Alert system (email/push)
+- [ ] Test utente reale Feature #1-2 + raccolta feedback
+- [ ] Verificare tutte le prop firm preset
 - [ ] Dashboard analytics trade bloccati
 
 ### **Long-term (prossime settimane):**
@@ -248,5 +524,5 @@ Nessuno al momento! 🎉
 
 ---
 
-**Ultimo aggiornamento:** 22 Ottobre 2025, 18:30 CET
-**Status:** ✅ **PRODUCTION LIVE**
+**Ultimo aggiornamento:** 22 Ottobre 2025, 23:45 CET
+**Status:** ✅ **PRODUCTION LIVE** (6 features deployed, Feature #3 in planning)
