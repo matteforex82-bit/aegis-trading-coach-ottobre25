@@ -7,7 +7,9 @@ import { PropFirmHealthWidget } from '@/components/prop-firm-health-widget';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
+import { Target } from 'lucide-react';
 
 interface Account {
   id: string;
@@ -31,11 +33,24 @@ interface Account {
   } | null;
 }
 
-interface TradeEntryClientProps {
-  accounts: Account[];
+interface PrefilledSetup {
+  symbol: string;
+  direction: 'BUY' | 'SELL';
+  entryPrice: number;
+  stopLoss: number;
+  takeProfit1?: number;
+  takeProfit2?: number;
+  takeProfit3?: number;
+  wavePattern?: string | null;
+  waveCount?: string | null;
 }
 
-export function TradeEntryClient({ accounts }: TradeEntryClientProps) {
+interface TradeEntryClientProps {
+  accounts: Account[];
+  prefilledSetup?: PrefilledSetup | null;
+}
+
+export function TradeEntryClient({ accounts, prefilledSetup }: TradeEntryClientProps) {
   const router = useRouter();
   const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || '');
 
@@ -77,12 +92,37 @@ export function TradeEntryClient({ accounts }: TradeEntryClientProps) {
           </CardContent>
         </Card>
 
+        {/* Trading Room Setup Indicator */}
+        {prefilledSetup && (
+          <Card className="border-primary/50 bg-primary/5">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-primary" />
+                  <div>
+                    <h3 className="font-medium">Trading Room Setup</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Form pre-filled from Elliott Wave analysis
+                      {prefilledSetup.wavePattern && ` • ${prefilledSetup.wavePattern}`}
+                      {prefilledSetup.waveCount && ` (${prefilledSetup.waveCount})`}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                  PRO Setup
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Cooldown Guard wraps Trade Entry Form */}
         {selectedAccountId && (
           <CooldownGuard accountId={selectedAccountId}>
             <TradeEntryForm
               accountId={selectedAccountId}
               onSuccess={handleTradeSuccess}
+              prefilledSetup={prefilledSetup || undefined}
             />
           </CooldownGuard>
         )}

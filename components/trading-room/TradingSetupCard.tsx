@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -198,6 +199,14 @@ export function TradingSetupCard({ setup, isAdmin = false, onEdit, onDelete }: T
             )}
           </div>
           <div className="flex gap-2">
+            {!isAdmin && (
+              <Button size="sm" asChild className={setup.direction === 'BUY' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}>
+                <Link href={`/dashboard/trade-entry?setup=${setup.id}`}>
+                  {setup.direction === 'BUY' ? <TrendingUp className="h-4 w-4 mr-1" /> : <TrendingDown className="h-4 w-4 mr-1" />}
+                  Trade This
+                </Link>
+              </Button>
+            )}
             {setup.pdfUrl && (
               <Button variant="outline" size="sm" asChild>
                 <a href={setup.pdfUrl} target="_blank" rel="noopener noreferrer">
