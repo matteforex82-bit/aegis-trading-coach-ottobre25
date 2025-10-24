@@ -91,7 +91,7 @@ async function main() {
   for (const limit of planLimits) {
     await prisma.planLimits.upsert({
       where: { plan: limit.plan as any },
-      update: limit,
+      update: limit as any,
       create: limit as any,
     });
   }
