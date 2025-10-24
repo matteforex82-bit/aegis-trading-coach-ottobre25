@@ -1,0 +1,119 @@
+---
+# AEGIS Trading Coach - Elliott Wave Setup Example
+# This file demonstrates the expected YAML structure for trade setups
+
+analysis_metadata:
+  analyst: "AEGIS Elliott Wave System"
+  date: "2025-10-25"
+  timeframe: "Daily"
+  confidence: "high"
+  market_context: "bullish_trend"
+
+assets:
+  - symbol: "EURUSD"
+    asset_type: "forex"
+    scenario: "bullish_impulse_wave_3"
+    wave_structure: "Primary Wave 3 of (5)"
+    confidence: 85
+
+    trading_setup:
+      primary_entry:
+        type: "buy_limit"
+        price: 1.0920
+        rationale: "Wave 2 retracement 50% Fibonacci level"
+
+      secondary_entry:
+        type: "buy_limit"
+        price: 1.0880
+        rationale: "Wave 2 retracement 61.8% Fibonacci level"
+
+      stop_loss:
+        price: 1.0850
+        rationale: "Below Wave 1 low - invalidation level"
+
+      take_profit_targets:
+        - level: "TP1"
+          price: 1.1150
+          percentage: 40
+          rationale: "Wave 3 = 1.618 x Wave 1"
+        - level: "TP2"
+          price: 1.1300
+          percentage: 35
+          rationale: "Wave 3 = 2.0 x Wave 1"
+        - level: "TP3"
+          price: 1.1500
+          percentage: 25
+          rationale: "Wave 3 extended target"
+
+      invalidation:
+        price: 1.0800
+        rule: "Wave 3 cannot be shorter than Wave 1"
+        action: "close_all_positions"
+
+  - symbol: "GBPUSD"
+    asset_type: "forex"
+    scenario: "corrective_wave_abc"
+    wave_structure: "Wave C of (4)"
+    confidence: 70
+
+    trading_setup:
+      primary_entry:
+        type: "sell_limit"
+        price: 1.2150
+        rationale: "Wave B resistance confluence"
+
+      stop_loss:
+        price: 1.2220
+        rationale: "Above Wave B high"
+
+      take_profit_targets:
+        - level: "TP1"
+          price: 1.2050
+          percentage: 50
+          rationale: "Wave C = Wave A"
+        - level: "TP2"
+          price: 1.1980
+          percentage: 50
+          rationale: "Wave C = 1.272 x Wave A"
+
+      invalidation:
+        price: 1.2250
+        rule: "Wave 4 cannot overlap Wave 1 in impulse"
+        action: "close_all_positions"
+
+  - symbol: "XAUUSD"
+    asset_type: "commodity"
+    scenario: "bullish_continuation"
+    wave_structure: "Minor Wave 5 of Intermediate (3)"
+    confidence: 75
+
+    trading_setup:
+      primary_entry:
+        type: "buy_limit"
+        price: 2625.00
+        rationale: "Pullback to support zone"
+
+      stop_loss:
+        price: 2605.00
+        rationale: "Below recent low and Wave 4"
+
+      take_profit_targets:
+        - level: "TP1"
+          price: 2680.00
+          percentage: 60
+          rationale: "Previous resistance level"
+        - level: "TP2"
+          price: 2720.00
+          percentage: 40
+          rationale: "Wave extension target"
+
+      invalidation:
+        price: 2590.00
+        rule: "Wave count invalidated below this level"
+        action: "close_all_positions"
+
+notes:
+  - "All entries should be scaled in as price action confirms"
+  - "Risk per trade should not exceed account risk tolerance"
+  - "Monitor for wave structure changes that may invalidate analysis"
+  - "Invalidation prices are CRITICAL - must be respected"

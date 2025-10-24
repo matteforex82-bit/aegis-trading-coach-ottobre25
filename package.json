@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
+    "db:seed": "tsx prisma/seed.ts",
     "setup:db": "tsx scripts/setup-database.ts",
     "setup:wizard": "powershell -ExecutionPolicy Bypass -File scripts/setup-wizard.ps1",
     "setup:mt5": "tsx scripts/setup-mt5.ts",
@@ -17,6 +18,9 @@
     "create-admin": "tsx scripts/create-admin.ts",
     "deploy:check": "tsx scripts/deploy-check.ts",
     "deploy:prepare": "npm run deploy:check && npm run build"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",

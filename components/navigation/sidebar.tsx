@@ -16,12 +16,14 @@ import {
   StickyNote,
   Crown,
   Users,
+  Upload,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Accounts", href: "/dashboard/accounts", icon: Wallet },
+  { name: "YAML Upload", href: "/dashboard/yaml-upload", icon: Upload, isNew: true },
   { name: "New Trade", href: "/dashboard/trade-entry", icon: TrendingUp, isNew: true },
   { name: "Trades", href: "/dashboard/trades", icon: TrendingUp },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },

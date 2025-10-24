@@ -194,10 +194,15 @@ model TradingAccount {
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
 
-  trades          Trade[]
-  metrics         AccountMetrics[]
-  tradeOrders     TradeOrder[]
-  propFirmChallenge PropFirmChallenge?
+  trades              Trade[]
+  metrics             AccountMetrics[]
+  tradeOrders         TradeOrder[]
+  propFirmChallenge   PropFirmChallenge?
+  challengeSetup      ChallengeSetup?
+  yamlAnalyses        YAMLAnalysis[]
+  drawdownSnapshots   DrawdownSnapshot[]
+  violationLogs       ViolationLog[]
+  disciplineReports   DisciplineReport[]
 
   @@index([userId])
   @@index([login])
@@ -472,11 +477,32 @@ model TradeOrder {
   riskPercent       Float             // e.g., 1.0 for 1%
   riskAmount        Float             // Calculated risk in account currency
 
+  // YAML Integration (NEW)
+  yamlAnalysisId    String?
+  yamlAnalysis      YAMLAnalysis?     @relation(fields: [yamlAnalysisId], references: [id])
+  yamlAssetId       String?           // Reference to asset in YAML
+
+  // Invalidation Tracking (NEW)
+  invalidationPrice Float?            // Price that invalidates Elliott pattern
+  invalidationRule  String?           // Description of invalidation rule
+
+  // Lock Mechanism (NEW)
+  isLocked          Boolean           @default(true)  // Cannot modify after placement
+  lockReason        String?           @default("IMMUTABLE_AFTER_PLACEMENT")
+
   // Execution Status
   status            TradeOrderStatus  @default(PENDING)
   mt5Ticket         String?           // MT5 ticket number after execution
+  mt5Status         String?           // MT5 status (PENDING, FILLED, REJECTED, etc.)
+  mt5LastSync       DateTime?         // Last sync with MT5
   executedAt        DateTime?
   failureReason     String?
+
+  // Close Tracking (NEW)
+  closedAt          DateTime?
+  closeReason       String?           // TP_HIT, SL_HIT, INVALIDATION, MANUAL, LIMIT_BREACH
+  closePrice        Float?
+  finalPnL          Float?
 
   // Metadata
   comment           String?
@@ -487,6 +513,7 @@ model TradeOrder {
 
   @@index([accountId])
   @@index([status])
+  @@index([yamlAnalysisId])
   @@index([createdAt])
   @@map("trade_orders")
 }
@@ -550,4 +577,170 @@ model CurrencyExposure {
   @@unique([accountId, currency])
   @@index([accountId])
   @@map("currency_exposures")
+}
+
+// =============================================================================
+// EXECUTION LAYER - CHALLENGE SETUP (IMMUTABLE CONFIG)
+// =============================================================================
+
+model ChallengeSetup {
+  id                String            @id @default(cuid())
+  accountId         String            @unique
+  account           TradingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Challenge Rules (READ-ONLY from provider)
+  challengeProvider String            // FTMO, FundedNext, ThinCap, MyFundedFX, Custom
+  challengePhase    String            // Phase1, Phase2, Funded
+  overRollMaxPercent Float            // e.g., 5.0 for 5%
+  dailyMaxPercent   Float             // e.g., 2.5 for 2.5%
+
+  // User-Configured Settings (SET ONCE, IMMUTABLE after activation)
+  userRiskPerTradePercent  Float      // e.g., 2.0 for 2%
+  userRiskPerAssetPercent  Float      // e.g., 2.0 for 2%
+  maxOrdersPerAsset        Int        // e.g., 3
+  minTimeBetweenOrdersSec  Int        // e.g., 0 (no cooldown)
+
+  // Calculated Derived Values (auto-computed)
+  accountSize              Float      // e.g., 100000
+  dailyBudgetDollars       Float      // e.g., 2500 (2.5% of 100k)
+  overRollBudgetDollars    Float      // e.g., 5000 (5% of 100k)
+  maxTradeRiskDollars      Float      // e.g., 2000 (2% of 100k)
+  maxAssetAllocationDollars Float     // e.g., 2000 (2% of 100k)
+
+  // UI/Discipline Settings
+  pnlHideMode              Boolean    @default(true)  // Hide real-time P&L
+  pnlRefreshRateHours      Int        @default(4)     // Update every 4 hours
+  orderLockEnabled         Boolean    @default(true)  // Lock orders after placement
+  autoCloseInvalidation    Boolean    @default(true)  // Auto-close on pattern break
+
+  // Status
+  setupCompletedAt         DateTime?                  // When wizard completed
+  status                   String     @default("PENDING") // PENDING, ACTIVE, ENDED
+  isLocked                 Boolean    @default(false)     // Cannot modify after activation
+
+  createdAt                DateTime   @default(now())
+  updatedAt                DateTime   @updatedAt
+
+  @@index([accountId])
+  @@map("challenge_setups")
+}
+
+// =============================================================================
+// EXECUTION LAYER - YAML ANALYSIS (UPLOAD DIRETTO)
+// =============================================================================
+
+model YAMLAnalysis {
+  id                String            @id @default(cuid())
+  accountId         String
+  account           TradingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // File Info
+  fileName          String
+  uploadedAt        DateTime          @default(now())
+
+  // YAML Content (raw text)
+  rawYAML           String            @db.Text
+  parsedData        Json              // Parsed YAML as JSON
+  extractedAssets   Json              // Array of trading setups
+
+  // Validation
+  validationStatus  String            @default("PENDING") // PENDING, VALID, INVALID
+  validationErrors  Json?             // Array of validation errors
+
+  // User Review
+  reviewedBy        String?           // User ID who reviewed
+  reviewedAt        DateTime?
+  reviewNotes       String?           @db.Text
+
+  // Generated Orders
+  generatedOrders   TradeOrder[]
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([accountId])
+  @@index([validationStatus])
+  @@index([uploadedAt])
+  @@map("yaml_analyses")
+}
+
+// =============================================================================
+// EXECUTION LAYER - DRAWDOWN SNAPSHOTS (REAL-TIME TRACKING)
+// =============================================================================
+
+model DrawdownSnapshot {
+  id                    String            @id @default(cuid())
+  accountId             String
+  account               TradingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Drawdown Tracking
+  dailyDrawdownTotal    Float             // Daily DD in dollars
+  overRollDrawdownTotal Float             // Over-roll DD in dollars
+  closedPnL             Float             // Realized P&L
+  floatingPnL           Float             // Unrealized P&L
+
+  // Timestamp
+  timestamp             DateTime          @default(now())
+
+  @@index([accountId, timestamp])
+  @@map("drawdown_snapshots")
+}
+
+// =============================================================================
+// EXECUTION LAYER - VIOLATIONS LOG (FOMO TRACKING)
+// =============================================================================
+
+model ViolationLog {
+  id                String            @id @default(cuid())
+  accountId         String
+  account           TradingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Violation Details
+  violationType     String            // FOMO_ATTEMPT, ORDER_MOD_ATTEMPT, LIMIT_BREACH, etc.
+  description       String            @db.Text
+  actionTaken       String            // BLOCKED, WARNED, LOGGED
+  severity          String            // INFO, WARNING, CRITICAL
+
+  // Timestamp
+  timestamp         DateTime          @default(now())
+
+  @@index([accountId, timestamp])
+  @@index([violationType])
+  @@map("violation_logs")
+}
+
+// =============================================================================
+// EXECUTION LAYER - DISCIPLINE REPORTS (END-OF-DAY SCORECARD)
+// =============================================================================
+
+model DisciplineReport {
+  id                 String            @id @default(cuid())
+  accountId          String
+  account            TradingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Report Date
+  reportDate         DateTime
+
+  // Discipline Score (0-100)
+  disciplineScore    Int
+
+  // Trading Stats
+  totalTrades        Int
+  winningTrades      Int
+  losingTrades       Int
+
+  // P&L
+  netPnL             Float
+  dailyDrawdown      Float
+  overRollDrawdown   Float
+
+  // Full Report Data (JSON)
+  reportData         Json              // Complete report structure
+
+  createdAt          DateTime          @default(now())
+
+  @@unique([accountId, reportDate])
+  @@index([accountId])
+  @@index([reportDate])
+  @@map("discipline_reports")
 }
