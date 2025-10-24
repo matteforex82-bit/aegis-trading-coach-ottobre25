@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge"
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Accounts", href: "/dashboard/accounts", icon: Wallet },
+  { name: "Challenge Setup", href: "/dashboard/challenge-setup", icon: Shield, isNew: true },
   { name: "YAML Upload", href: "/dashboard/yaml-upload", icon: Upload, isNew: true },
   { name: "New Trade", href: "/dashboard/trade-entry", icon: TrendingUp, isNew: true },
   { name: "Trades", href: "/dashboard/trades", icon: TrendingUp },
