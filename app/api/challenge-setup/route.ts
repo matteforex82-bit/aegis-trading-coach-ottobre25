@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
         dailyBudgetDollars: derived.dailyBudgetDollars,
         overRollBudgetDollars: derived.overRollBudgetDollars,
         maxTradeRiskDollars: derived.maxTradeRiskDollars,
+        maxAssetAllocationDollars: derived.maxAssetAllocationDollars,
         pnlHideMode,
         pnlRefreshRateHours,
         orderLockEnabled,
