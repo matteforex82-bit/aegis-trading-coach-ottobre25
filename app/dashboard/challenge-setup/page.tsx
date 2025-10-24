@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -63,7 +63,6 @@ const STEPS = [
 
 export default function ChallengeSetupPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { data: session } = useSession();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -91,14 +90,6 @@ export default function ChallengeSetupPage() {
   useEffect(() => {
     loadAccounts();
   }, []);
-
-  // Pre-select account from URL if provided
-  useEffect(() => {
-    const accountId = searchParams.get('accountId');
-    if (accountId && accounts.length > 0) {
-      setSetupData(prev => ({ ...prev, accountId }));
-    }
-  }, [searchParams, accounts]);
 
   const loadAccounts = async () => {
     setLoadingAccounts(true);
