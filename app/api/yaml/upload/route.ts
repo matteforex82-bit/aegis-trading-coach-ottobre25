@@ -146,7 +146,6 @@ export async function POST(request: NextRequest) {
         parsedData: parsedData as any,
         extractedAssets: extractedAssets as any,
         validationStatus: 'VALID',
-        validationErrors: null,
       }
     });
 
