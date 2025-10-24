@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,9 +35,9 @@ export default function YAMLUploadPage() {
   const [loadingAccounts, setLoadingAccounts] = useState(false);
 
   // Load accounts on mount
-  useState(() => {
+  useEffect(() => {
     loadAccounts();
-  });
+  }, []);
 
   const loadAccounts = async () => {
     setLoadingAccounts(true);
