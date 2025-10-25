@@ -19,6 +19,7 @@ import {
   Upload,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { AlertWidget } from "@/components/alerts/alert-widget"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -50,6 +51,9 @@ export function Sidebar() {
           <Shield className="w-5 h-5 text-primary-foreground" />
         </div>
         <span className="text-lg font-bold">AEGIS</span>
+        <div className="ml-auto">
+          <AlertWidget />
+        </div>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {/* Regular navigation */}
