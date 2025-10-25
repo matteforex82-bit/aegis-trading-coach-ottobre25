@@ -177,6 +177,55 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * GET endpoint to retrieve YAML analysis by ID
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Analysis ID required' }, { status: 400 });
+    }
+
+    const analysis = await prisma.yAMLAnalysis.findUnique({
+      where: { id },
+      include: {
+        account: {
+          select: {
+            id: true,
+            login: true,
+            broker: true,
+            userId: true,
+          },
+        },
+      },
+    });
+
+    if (!analysis) {
+      return NextResponse.json({ error: 'Analysis not found' }, { status: 404 });
+    }
+
+    if (analysis.account.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    return NextResponse.json(analysis);
+  } catch (error: any) {
+    console.error('Get YAML analysis error:', error);
+    return NextResponse.json({
+      error: 'Internal server error',
+      message: error.message,
+    }, { status: 500 });
+  }
+}
+
+/**
  * Validate YAML Structure
  * Ensures all required fields are present
  */

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -27,6 +28,7 @@ interface UploadResult {
 
 export default function YAMLUploadPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -92,10 +94,8 @@ export default function YAMLUploadPage() {
       const result = await response.json();
 
       if (response.ok) {
-        setUploadResult({
-          status: 'success',
-          ...result,
-        });
+        // Redirect to review page
+        router.push(`/dashboard/yaml-review/${result.analysisId}`);
       } else {
         setUploadResult({
           status: 'error',
