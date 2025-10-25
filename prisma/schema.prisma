@@ -179,6 +179,7 @@ model TradingAccount {
   // Execution Layer Fields
   lockMode        LockMode      @default(MEDIUM)
   automationMode  AutomationMode @default(MANUAL)
+  mt5ApiKey       String?       // API key for MT5 EA authentication
 
   // Guardian Settings
   maxRiskPercent       Float    @default(2.0)    // Max risk per trade (%)
@@ -465,7 +466,9 @@ model TradeOrder {
 
   // Order Details
   symbol            String
-  type              String            // BUY, SELL
+  direction         String            // BUY or SELL
+  orderType         String            // BUY_LIMIT, SELL_LIMIT, BUY_STOP, SELL_STOP, MARKET
+  type              String            // BUY, SELL (legacy, keep for compatibility)
   lotSize           Float
   entryPrice        Float?            // null for market orders
   stopLoss          Float
@@ -496,6 +499,8 @@ model TradeOrder {
   mt5Status         String?           // MT5 status (PENDING, FILLED, REJECTED, etc.)
   mt5LastSync       DateTime?         // Last sync with MT5
   executedAt        DateTime?
+  executionPrice    Float?            // Actual fill price from MT5
+  executionTime     DateTime?         // Exact execution timestamp from MT5
   failureReason     String?
 
   // Close Tracking (NEW)

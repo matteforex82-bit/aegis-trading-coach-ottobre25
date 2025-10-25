@@ -15,6 +15,7 @@
     "setup:wizard": "powershell -ExecutionPolicy Bypass -File scripts/setup-wizard.ps1",
     "setup:mt5": "tsx scripts/setup-mt5.ts",
     "generate:api-key": "tsx scripts/generate-api-key.ts",
+    "generate:mt5-key": "tsx scripts/generate-mt5-api-key.ts",
     "create-admin": "tsx scripts/create-admin.ts",
     "deploy:check": "tsx scripts/deploy-check.ts",
     "deploy:prepare": "npm run deploy:check && npm run build"

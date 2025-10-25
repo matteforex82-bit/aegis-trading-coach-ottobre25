@@ -66,7 +66,9 @@ export interface ConversionOptions {
 export interface TradeOrderData {
   accountId: string;
   symbol: string;
-  type: string; // BUY or SELL
+  direction: string; // BUY or SELL
+  orderType: string; // BUY_LIMIT, SELL_LIMIT, BUY_STOP, SELL_STOP, MARKET
+  type: string; // BUY or SELL (legacy)
   lotSize: number;
   entryPrice: number;
   stopLoss: number;
@@ -254,10 +256,18 @@ function generateOrderData(
   // Build comment
   const comment = buildOrderComment(asset, entryType);
 
+  // Determine direction and order type
+  const direction = tradeType.includes('buy') ? 'BUY' : 'SELL';
+  const orderType = tradeType.includes('limit')
+    ? (direction === 'BUY' ? 'BUY_LIMIT' : 'SELL_LIMIT')
+    : (direction === 'BUY' ? 'BUY_STOP' : 'SELL_STOP');
+
   const order: TradeOrderData = {
     accountId: options.accountId,
     symbol: asset.symbol,
-    type: tradeType,
+    direction,
+    orderType,
+    type: tradeType, // Legacy field
     lotSize: riskCalc.lotSize,
     entryPrice,
     stopLoss,
