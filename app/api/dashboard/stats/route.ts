@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
         currentBalance: acc.currentBalance,
         profit: acc.profit,
         status: acc.status,
+        initialBalance: acc.startBalance,
       })),
     })
   } catch (error) {

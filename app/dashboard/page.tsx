@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { formatCurrency, formatPercentage } from "@/lib/utils"
 import { SubscriptionGuard } from "@/components/subscription-guard"
+import { PnLWidget } from "@/components/dashboard/pnl-widget"
 
 interface DashboardStats {
   totalBalance: number
@@ -32,6 +33,7 @@ interface DashboardStats {
     currentBalance: number
     profit: number
     status: string
+    initialBalance: number
   }>
 }
 
@@ -235,56 +237,57 @@ function DashboardContent() {
           ))}
         </div>
 
-        {/* Active Accounts */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Accounts</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stats?.accounts && stats.accounts.length > 0 ? (
-              <div className="space-y-4">
-                {stats.accounts.map((account) => (
-                  <div
-                    key={account.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">{account.broker}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Account: {account.login}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">
-                        {formatCurrency(account.currentBalance)}
-                      </p>
-                      <p
-                        className={`text-sm ${
-                          account.profit >= 0 ? "text-green-600" : "text-red-600"
-                        }`}
-                      >
-                        {formatCurrency(account.profit)}
-                      </p>
-                    </div>
-                    <Badge
-                      variant={
-                        account.status === "ACTIVE" ? "success" : "secondary"
-                      }
-                    >
-                      {account.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Wallet className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No active accounts yet</p>
-                <p className="text-sm">Connect your MT4/MT5 account to get started</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Active Accounts with P&L Widgets */}
+        {stats?.accounts && stats.accounts.length > 0 ? (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold">Account Performance</h3>
+              <p className="text-sm text-muted-foreground">
+                Real-time P&L updates every 4 hours
+              </p>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2">
+              {stats.accounts.map((account) => (
+                <div key={account.id} className="space-y-4">
+                  {/* Account Info Header */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-base">{account.broker}</CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            Account: {account.login}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            account.status === "ACTIVE" ? "success" : "secondary"
+                          }
+                        >
+                          {account.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                  </Card>
+
+                  {/* P&L Widget */}
+                  <PnLWidget
+                    accountId={account.id}
+                    initialBalance={account.initialBalance}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="text-center py-8 text-muted-foreground">
+              <Wallet className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No active accounts yet</p>
+              <p className="text-sm">Connect your MT4/MT5 account to get started</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </SubscriptionGuard>
   )
