@@ -197,6 +197,7 @@ void PollPendingOrders() {
     string url = API_URL + "/api/mt5/pending-orders?accountLogin=" + accountLogin;
     string headers = "X-API-Key: " + API_KEY + "\r\n";
 
+    char post[];  // Empty array for GET request
     char result[];
     string responseHeaders;
     int timeout = 5000;
@@ -206,7 +207,7 @@ void PollPendingOrders() {
         url,
         headers,
         timeout,
-        NULL,
+        post,
         result,
         responseHeaders
     );
@@ -536,7 +537,11 @@ void RestoreOriginalSLTP(ulong ticket) {
             request.sl = activeOrders[i].stopLoss;
             request.tp = activeOrders[i].takeProfit;
 
-            OrderSend(request, result);
+            if(!OrderSend(request, result)) {
+                if(ENABLE_LOGGING) {
+                    Print("⚠️  Failed to restore SL/TP for ticket #", ticket, " Error: ", GetLastError());
+                }
+            }
             break;
         }
     }
