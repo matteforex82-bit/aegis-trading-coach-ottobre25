@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Preview conversion
-    const extractedAssets = yamlAnalysis.extractedAssets as YAMLAsset[];
+    const extractedAssets = yamlAnalysis.extractedAssets as unknown as YAMLAsset[];
     const conversionResult = convertMultipleAssetsToTradeOrders(extractedAssets, {
       accountId: yamlAnalysis.accountId,
       yamlAnalysisId: yamlAnalysis.id,

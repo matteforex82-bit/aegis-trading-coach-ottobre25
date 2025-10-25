@@ -1,4 +1,4 @@
-import { calculateRisk } from './risk-calculator';
+import { calculateLotSize } from './risk-calculator';
 
 /**
  * YAML to TradeOrders Converter
@@ -216,7 +216,7 @@ function generateOrderData(
   const stopLoss = asset.trading_setup.stop_loss.price;
 
   // Calculate position size
-  const riskCalc = calculateRisk({
+  const riskCalc = calculateLotSize({
     accountBalance: options.accountBalance,
     riskPercent: options.challengeSetup.userRiskPerTradePercent,
     entryPrice,
