@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,7 +66,7 @@ const gradeIcons = {
   F: AlertCircle,
 };
 
-export default function DisciplinePage() {
+function DisciplineContent() {
   const searchParams = useSearchParams();
   const accountId = searchParams.get('accountId');
 
@@ -473,5 +473,17 @@ export default function DisciplinePage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function DisciplinePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <DisciplineContent />
+    </Suspense>
   );
 }
