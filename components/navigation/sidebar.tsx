@@ -17,6 +17,7 @@ import {
   Crown,
   Users,
   Upload,
+  Award,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { AlertWidget } from "@/components/alerts/alert-widget"
@@ -29,6 +30,7 @@ const navigation = [
   { name: "New Trade", href: "/dashboard/trade-entry", icon: TrendingUp, isNew: true },
   { name: "Trades", href: "/dashboard/trades", icon: TrendingUp },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+  { name: "Discipline", href: "/dashboard/discipline", icon: Award, isNew: true },
   { name: "Trading Room", href: "/dashboard/trading-room", icon: Target, isPremium: true },
   { name: "My Notes", href: "/dashboard/journal", icon: StickyNote },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
