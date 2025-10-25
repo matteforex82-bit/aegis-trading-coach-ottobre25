@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db as prisma } from '@/lib/db';
+import { verifyMT5ApiKey, getTradingAccountByLogin } from '@/lib/mt5-auth';
 
 /**
  * POST /api/mt5/drawdown-snapshot
@@ -18,13 +19,13 @@ import { db as prisma } from '@/lib/db';
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Authenticate
-    const apiKey = request.headers.get('x-api-key');
+    // 1. Authenticate via API Key
+    const userId = await verifyMT5ApiKey(request);
 
-    if (!apiKey) {
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Missing API Key' },
-        { status: 401 }
+        { error: 'Invalid or missing API key' },
+        { status: 403 }
       );
     }
 
@@ -45,16 +46,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Find account and verify API key
-    const account = await prisma.tradingAccount.findFirst({
-      where: {
-        login: accountLogin,
-        mt5ApiKey: apiKey,
-      },
-      include: {
-        challengeSetup: true,
-      },
-    });
+    // 3. Get trading account for authenticated user
+    const account = await getTradingAccountByLogin(userId, accountLogin);
 
     if (!account) {
       return NextResponse.json(
@@ -78,8 +71,12 @@ export async function POST(request: NextRequest) {
     let warnings: string[] = [];
     let shouldBlockOrders = false;
 
-    if (account.challengeSetup) {
-      const setup = account.challengeSetup;
+    const challengeSetup = await prisma.challengeSetup.findUnique({
+      where: { accountId: account.id },
+    });
+
+    if (challengeSetup) {
+      const setup = challengeSetup;
 
       // Check daily limit
       const dailyLimitPercent = Math.abs(dailyDrawdown / setup.dailyBudgetDollars) * 100;
@@ -135,11 +132,11 @@ export async function POST(request: NextRequest) {
       },
       warnings,
       blockOrders: shouldBlockOrders,
-      limits: account.challengeSetup
+      limits: challengeSetup
         ? {
-            dailyBudget: account.challengeSetup.dailyBudgetDollars,
+            dailyBudget: challengeSetup.dailyBudgetDollars,
             dailyUsed: Math.abs(dailyDrawdown),
-            dailyRemaining: account.challengeSetup.dailyBudgetDollars - Math.abs(dailyDrawdown),
+            dailyRemaining: challengeSetup.dailyBudgetDollars - Math.abs(dailyDrawdown),
           }
         : null,
     });

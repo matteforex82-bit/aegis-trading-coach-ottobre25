@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db as prisma } from '@/lib/db';
+import { verifyMT5ApiKey, getTradingAccountByLogin } from '@/lib/mt5-auth';
 
 /**
  * GET /api/mt5/pending-orders
@@ -15,12 +16,12 @@ import { db as prisma } from '@/lib/db';
 export async function GET(request: NextRequest) {
   try {
     // 1. Authenticate via API Key
-    const apiKey = request.headers.get('x-api-key');
+    const userId = await verifyMT5ApiKey(request);
 
-    if (!apiKey) {
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Missing API Key' },
-        { status: 401 }
+        { error: 'Invalid or missing API key' },
+        { status: 403 }
       );
     }
 
@@ -35,23 +36,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 3. Verify API key and find account
-    const account = await prisma.tradingAccount.findFirst({
-      where: {
-        login: accountLogin,
-        mt5ApiKey: apiKey, // Verify API key matches
-      },
-      include: {
-        challengeSetup: true,
-      },
-    });
+    // 3. Get trading account for authenticated user
+    const account = await getTradingAccountByLogin(userId, accountLogin);
 
     if (!account) {
       return NextResponse.json(
-        { error: 'Unauthorized: Invalid API key or account not found' },
-        { status: 403 }
+        { error: 'Trading account not found' },
+        { status: 404 }
       );
     }
+
+    // Get challenge setup if exists
+    const challengeSetup = await prisma.challengeSetup.findUnique({
+      where: { accountId: account.id },
+    });
 
     // 4. Get pending orders for this account
     const pendingOrders = await prisma.tradeOrder.findMany({
@@ -92,7 +90,7 @@ export async function GET(request: NextRequest) {
         id: account.id,
         login: account.login,
         broker: account.broker,
-        challengeActive: !!account.challengeSetup,
+        challengeActive: !!challengeSetup,
       },
     });
   } catch (error: any) {
