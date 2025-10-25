@@ -207,6 +207,8 @@ model TradingAccount {
   drawdownSnapshots   DrawdownSnapshot[]
   violationLogs       ViolationLog[]
   disciplineReports   DisciplineReport[]
+  pnlSnapshots        PnLSnapshot[]
+  alerts              Alert[]
 
   @@index([userId])
   @@index([login])
@@ -752,4 +754,56 @@ model DisciplineReport {
   @@index([accountId])
   @@index([reportDate])
   @@map("discipline_reports")
+}
+
+// =============================================================================
+// UI/UX FEATURES - P&L SNAPSHOTS & ALERTS
+// =============================================================================
+
+model PnLSnapshot {
+  id                String            @id @default(cuid())
+  accountId         String
+  account           TradingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Snapshot Time
+  snapshotTime      DateTime          @default(now())
+
+  // P&L Data
+  balance           Float
+  equity            Float
+  profit            Float
+  drawdown          Float
+  dailyPnL          Float
+
+  // Metadata
+  isManualReveal    Boolean           @default(false)  // User clicked "Reveal P&L"
+
+  @@index([accountId, snapshotTime])
+  @@map("pnl_snapshots")
+}
+
+model Alert {
+  id                String            @id @default(cuid())
+  accountId         String
+  account           TradingAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Alert Details
+  type              String            // TRADE_EXECUTED, INVALIDATION, LIMIT_WARNING, etc
+  severity          String            // INFO, WARNING, CRITICAL
+  title             String
+  message           String            @db.Text
+  metadata          Json?             // Additional context
+
+  // Status
+  isRead            Boolean           @default(false)
+  isDismissed       Boolean           @default(false)
+
+  // Timestamps
+  createdAt         DateTime          @default(now())
+  readAt            DateTime?
+  dismissedAt       DateTime?
+
+  @@index([accountId, createdAt])
+  @@index([isRead])
+  @@map("alerts")
 }
