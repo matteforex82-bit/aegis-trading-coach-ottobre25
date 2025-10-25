@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/table"
 import { Plus, RefreshCw, Trash2 } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { AddAccountDialog } from "@/components/accounts/add-account-dialog"
+import { ApiKeyButton } from "@/components/accounts/api-key-button"
 
 interface TradingAccount {
   id: string
@@ -130,10 +132,7 @@ export default function AccountsPage() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Account
-          </Button>
+          <AddAccountDialog onAccountAdded={fetchAccounts} />
         </div>
       </div>
 
@@ -200,13 +199,20 @@ export default function AccountsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(account.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <ApiKeyButton
+                          accountId={account.id}
+                          accountLogin={account.login}
+                          broker={account.broker}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(account.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -215,10 +221,7 @@ export default function AccountsPage() {
           ) : (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">No accounts connected yet</p>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Connect Your First Account
-              </Button>
+              <AddAccountDialog onAccountAdded={fetchAccounts} />
             </div>
           )}
         </CardContent>
