@@ -60,11 +60,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Create trade order
+    const typeUpper = type.toUpperCase();
+    const direction = typeUpper.includes('BUY') ? 'BUY' : 'SELL';
+    const orderType = entryPrice ? `${direction}_LIMIT` : `${direction}_STOP`;
+
     const tradeOrder = await prisma.tradeOrder.create({
       data: {
         accountId,
         symbol: symbol.toUpperCase(),
-        type: type.toUpperCase(),
+        direction,
+        orderType,
+        type: typeUpper,
         lotSize: parseFloat(lotSize),
         entryPrice: entryPrice ? parseFloat(entryPrice) : null,
         stopLoss: parseFloat(stopLoss),

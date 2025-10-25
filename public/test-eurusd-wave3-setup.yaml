@@ -1,0 +1,73 @@
+# AEGIS Trading Coach - Elliott Wave Setup Example
+# Symbol: EURUSD - Wave 3 Impulse Long Setup
+# Analysis Date: 2025-10-25
+# Timeframe: H4
+
+assets:
+  - symbol: EURUSD
+    asset_type: forex_major
+    scenario: bullish_impulse_wave3
+    wave_structure: "Corrective Wave 2 completed at 1.0850, Wave 3 starting"
+    confidence: 0.85
+
+    trading_setup:
+      # Primary entry at current market
+      primary_entry:
+        type: buy_limit
+        price: 1.0920
+        rationale: "Entry at 50% Fibonacci retracement of Wave 1, strong support zone"
+
+      # Secondary entry if price dips lower
+      secondary_entry:
+        type: buy_limit
+        price: 1.0880
+        rationale: "Backup entry at 61.8% Fibonacci retracement, strong confluence"
+
+      # Stop loss below Wave 2 low
+      stop_loss:
+        price: 1.0850
+        rationale: "Below Wave 2 low - pattern invalidation level"
+
+      # Take profit targets based on Wave 3 projection
+      take_profit_targets:
+        - level: "TP1"
+          price: 1.1050
+          percentage: 50
+          rationale: "Wave 3 = 1.618 × Wave 1 (minimum target)"
+
+        - level: "TP2"
+          price: 1.1150
+          percentage: 30
+          rationale: "Wave 3 = 2.0 × Wave 1 (standard extension)"
+
+        - level: "TP3"
+          price: 1.1300
+          percentage: 20
+          rationale: "Wave 3 = 2.618 × Wave 1 (maximum extension)"
+
+      # Elliott Wave invalidation rule
+      invalidation:
+        price: 1.0800
+        rule: "If price breaks below Wave 1 low, Elliott Wave count is invalid"
+        action: "CLOSE_ALL_ORDERS"
+
+    # Risk management
+    risk_management:
+      max_risk_percent: 1.5
+      position_sizing_method: "FIXED_FRACTIONAL"
+
+    # Market conditions
+    market_context:
+      trend: "UPTREND"
+      momentum: "STRONG"
+      volume_confirmation: true
+      key_levels:
+        support: [1.0850, 1.0800, 1.0750]
+        resistance: [1.1000, 1.1150, 1.1300]
+
+    # Additional notes
+    notes: |
+      Strong bullish setup with Wave 3 starting after clean Wave 2 correction.
+      Multiple Fibonacci confluences at entry zones.
+      Clear invalidation below 1.0800 protects capital if count is wrong.
+      Recommended risk: 1-1.5% per trade.

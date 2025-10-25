@@ -135,7 +135,10 @@ enum AutomationMode {
 
 enum TradeOrderStatus {
   PENDING   // Waiting for EA to execute
-  EXECUTED  // Successfully executed on MT5
+  APPROVED  // Approved, ready for execution
+  ACTIVE    // Order executed and position open
+  EXECUTED  // Successfully executed on MT5 (legacy)
+  CLOSED    // Position closed
   FAILED    // Execution failed
   CANCELED  // Manually canceled before execution
 }
@@ -705,6 +708,7 @@ model ViolationLog {
   description       String            @db.Text
   actionTaken       String            // BLOCKED, WARNED, LOGGED
   severity          String            // INFO, WARNING, CRITICAL
+  metadata          Json?             // Additional context data
 
   // Timestamp
   timestamp         DateTime          @default(now())

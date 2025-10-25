@@ -1,0 +1,109 @@
+# AEGIS Trading Coach - Multi-Asset Elliott Wave Setup
+# Multiple trading opportunities across different pairs
+# Analysis Date: 2025-10-25
+
+assets:
+  # Asset 1: EURUSD - Wave 3 Long
+  - symbol: EURUSD
+    asset_type: forex_major
+    scenario: bullish_wave3
+    wave_structure: "Wave 2 correction complete, Wave 3 starting"
+    confidence: 0.85
+
+    trading_setup:
+      primary_entry:
+        type: buy_limit
+        price: 1.0920
+
+      stop_loss:
+        price: 1.0850
+
+      take_profit_targets:
+        - level: "TP1"
+          price: 1.1050
+          percentage: 50
+        - level: "TP2"
+          price: 1.1150
+          percentage: 30
+        - level: "TP3"
+          price: 1.1300
+          percentage: 20
+
+      invalidation:
+        price: 1.0800
+        rule: "Below Wave 1 low"
+        action: "CLOSE_ALL"
+
+  # Asset 2: GBPUSD - Wave C Correction Short
+  - symbol: GBPUSD
+    asset_type: forex_major
+    scenario: bearish_corrective_waveC
+    wave_structure: "ABC correction, Wave C down starting"
+    confidence: 0.75
+
+    trading_setup:
+      primary_entry:
+        type: sell_limit
+        price: 1.2680
+
+      stop_loss:
+        price: 1.2750
+
+      take_profit_targets:
+        - level: "TP1"
+          price: 1.2580
+          percentage: 60
+        - level: "TP2"
+          price: 1.2500
+          percentage: 40
+
+      invalidation:
+        price: 1.2800
+        rule: "Above Wave B high invalidates correction"
+        action: "CLOSE_ALL"
+
+  # Asset 3: XAUUSD (Gold) - Wave 5 Final Push
+  - symbol: XAUUSD
+    asset_type: commodity
+    scenario: bullish_wave5_final
+    wave_structure: "Final Wave 5 push in larger impulse"
+    confidence: 0.70
+
+    trading_setup:
+      primary_entry:
+        type: buy_limit
+        price: 2650.00
+
+      secondary_entry:
+        type: buy_limit
+        price: 2630.00
+
+      stop_loss:
+        price: 2600.00
+
+      take_profit_targets:
+        - level: "TP1"
+          price: 2720.00
+          percentage: 70
+        - level: "TP2"
+          price: 2780.00
+          percentage: 30
+
+      invalidation:
+        price: 2580.00
+        rule: "Below Wave 4 low"
+        action: "CLOSE_ALL"
+
+# Global notes
+notes: |
+  Multi-asset portfolio approach with 3 independent Elliott Wave setups.
+  EURUSD and XAUUSD are bullish (Wave 3 and Wave 5).
+  GBPUSD is bearish correction (Wave C).
+
+  Currency exposure:
+  - USD: Short (via EURUSD and GBPUSD longs)
+  - EUR: Long
+  - GBP: Short
+  - Gold: Long
+
+  Risk: Recommend 1-1.5% per setup, total 3-4.5% portfolio exposure.

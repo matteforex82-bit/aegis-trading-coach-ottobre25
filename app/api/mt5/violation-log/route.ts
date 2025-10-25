@@ -89,14 +89,15 @@ export async function POST(request: NextRequest) {
     });
 
     // 6. Log to console for monitoring
-    const severityEmoji = {
+    const severityEmoji: Record<string, string> = {
       INFO: 'ℹ️',
       WARNING: '⚠️',
       CRITICAL: '🚨',
-    }[severity || 'WARNING'];
+    };
+    const emoji = severityEmoji[severity || 'WARNING'] || '⚠️';
 
     console.log(
-      `${severityEmoji} Violation logged for ${accountLogin}: ${violationType} - ${description || 'No description'}`
+      `${emoji} Violation logged for ${accountLogin}: ${violationType} - ${description || 'No description'}`
     );
 
     // 7. Check if we should notify user (critical violations)
