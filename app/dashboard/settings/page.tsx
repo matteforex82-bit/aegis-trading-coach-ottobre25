@@ -4,7 +4,6 @@ import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ApiKeyManager } from "@/components/settings/ApiKeyManager"
 import { ProfileSettings } from "@/components/settings/ProfileSettings"
 import { PasswordChange } from "@/components/settings/PasswordChange"
 import { NotificationSettings } from "@/components/settings/NotificationSettings"
@@ -26,7 +25,6 @@ export default function SettingsPage() {
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
-          <TabsTrigger value="api-keys">API Keys</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
         </TabsList>
@@ -63,10 +61,6 @@ export default function SettingsPage() {
               </Button>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="api-keys" className="space-y-6">
-          <ApiKeyManager />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-6">
