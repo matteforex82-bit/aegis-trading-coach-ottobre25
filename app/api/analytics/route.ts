@@ -13,13 +13,16 @@ export async function GET(request: NextRequest) {
 
     // Get query parameters for filtering
     const { searchParams } = new URL(request.url)
-    const period = searchParams.get('period') || '30' // days
+    const period = searchParams.get('period') || 'all' // 'all' or number of days
     const accountId = searchParams.get('accountId') // optional filter
 
-    // Calculate date range
-    const periodDays = parseInt(period)
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - periodDays)
+    // Calculate date range - if period is 'all', don't filter by date
+    let startDate: Date | undefined
+    if (period !== 'all') {
+      const periodDays = parseInt(period)
+      startDate = new Date()
+      startDate.setDate(startDate.getDate() - periodDays)
+    }
 
     // Get all trading accounts for the user
     const accountsWhere: any = {
@@ -36,9 +39,11 @@ export async function GET(request: NextRequest) {
       include: {
         trades: {
           where: {
-            closeTime: {
+            closeTime: startDate ? {
               not: null,
               gte: startDate
+            } : {
+              not: null
             },
           },
           orderBy: {
@@ -76,12 +81,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Summary stats
-    const winningTrades = allTrades.filter(t => (t.profit || 0) > 0)
-    const losingTrades = allTrades.filter(t => (t.profit || 0) < 0)
+    // Calculate net profit per trade (profit + commission + swap)
+    const tradesWithNetProfit = allTrades.map(t => ({
+      ...t,
+      netProfit: (t.profit || 0) + (t.commission || 0) + (t.swap || 0)
+    }))
 
-    const grossProfit = winningTrades.reduce((sum, t) => sum + (t.profit || 0), 0)
-    const grossLoss = Math.abs(losingTrades.reduce((sum, t) => sum + (t.profit || 0), 0))
-    const totalProfit = allTrades.reduce((sum, t) => sum + (t.profit || 0), 0)
+    const winningTrades = tradesWithNetProfit.filter(t => t.netProfit > 0)
+    const losingTrades = tradesWithNetProfit.filter(t => t.netProfit < 0)
+
+    const grossProfit = winningTrades.reduce((sum, t) => sum + t.netProfit, 0)
+    const grossLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.netProfit, 0))
+    const totalProfit = tradesWithNetProfit.reduce((sum, t) => sum + t.netProfit, 0)
 
     const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 999 : 0
     const winRate = allTrades.length > 0 ? (winningTrades.length / allTrades.length) * 100 : 0
@@ -94,28 +105,28 @@ export async function GET(request: NextRequest) {
       : 0
     const averageRR = averageLoss > 0 ? averageWin / averageLoss : 0
 
-    const profits = allTrades.map(t => t.profit || 0)
-    const bestTrade = profits.length > 0 ? Math.max(...profits) : 0
-    const worstTrade = profits.length > 0 ? Math.min(...profits) : 0
+    const netProfits = tradesWithNetProfit.map(t => t.netProfit)
+    const bestTrade = netProfits.length > 0 ? Math.max(...netProfits) : 0
+    const worstTrade = netProfits.length > 0 ? Math.min(...netProfits) : 0
 
     // Equity curve (cumulative profit over time)
     let cumulativeProfit = 0
-    const equityCurve = allTrades.map(trade => {
-      cumulativeProfit += trade.profit || 0
+    const equityCurve = tradesWithNetProfit.map(trade => {
+      cumulativeProfit += trade.netProfit
       return {
         date: trade.closeTime!.toISOString(),
         profit: cumulativeProfit,
-        trade: trade.profit || 0,
+        trade: trade.netProfit,
       }
     })
 
     // Monthly performance
     const monthlyMap = new Map<string, { profit: number; trades: number }>()
-    allTrades.forEach(trade => {
+    tradesWithNetProfit.forEach(trade => {
       const month = new Date(trade.closeTime!).toISOString().slice(0, 7) // YYYY-MM
       const existing = monthlyMap.get(month) || { profit: 0, trades: 0 }
       monthlyMap.set(month, {
-        profit: existing.profit + (trade.profit || 0),
+        profit: existing.profit + trade.netProfit,
         trades: existing.trades + 1,
       })
     })
@@ -137,7 +148,7 @@ export async function GET(request: NextRequest) {
       volume: number
     }>()
 
-    allTrades.forEach(trade => {
+    tradesWithNetProfit.forEach(trade => {
       const existing = symbolMap.get(trade.symbol) || {
         trades: 0,
         wins: 0,
@@ -148,9 +159,9 @@ export async function GET(request: NextRequest) {
 
       symbolMap.set(trade.symbol, {
         trades: existing.trades + 1,
-        wins: existing.wins + ((trade.profit || 0) > 0 ? 1 : 0),
-        losses: existing.losses + ((trade.profit || 0) < 0 ? 1 : 0),
-        profit: existing.profit + (trade.profit || 0),
+        wins: existing.wins + (trade.netProfit > 0 ? 1 : 0),
+        losses: existing.losses + (trade.netProfit < 0 ? 1 : 0),
+        profit: existing.profit + trade.netProfit,
         volume: existing.volume + trade.volume,
       })
     })
@@ -169,13 +180,13 @@ export async function GET(request: NextRequest) {
 
     // Weekday analysis (0 = Sunday, 6 = Saturday)
     const weekdayMap = new Map<number, { trades: number; profit: number; wins: number }>()
-    allTrades.forEach(trade => {
+    tradesWithNetProfit.forEach(trade => {
       const day = new Date(trade.closeTime!).getDay()
       const existing = weekdayMap.get(day) || { trades: 0, profit: 0, wins: 0 }
       weekdayMap.set(day, {
         trades: existing.trades + 1,
-        profit: existing.profit + (trade.profit || 0),
-        wins: existing.wins + ((trade.profit || 0) > 0 ? 1 : 0),
+        profit: existing.profit + trade.netProfit,
+        wins: existing.wins + (trade.netProfit > 0 ? 1 : 0),
       })
     })
 

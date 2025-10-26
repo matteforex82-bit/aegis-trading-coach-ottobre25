@@ -57,7 +57,7 @@ interface AnalyticsData {
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [period, setPeriod] = useState('30')
+  const [period, setPeriod] = useState('all')
 
   useEffect(() => {
     fetchAnalytics()
@@ -121,7 +121,7 @@ export default function AnalyticsPage() {
               <SelectItem value="30">Last 30 days</SelectItem>
               <SelectItem value="90">Last 90 days</SelectItem>
               <SelectItem value="365">Last year</SelectItem>
-              <SelectItem value="999999">All time</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
             </SelectContent>
           </Select>
         </div>
