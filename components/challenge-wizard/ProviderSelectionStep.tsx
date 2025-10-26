@@ -18,21 +18,19 @@ export function ProviderSelectionStep({
   accounts,
   loadingAccounts,
 }: ProviderSelectionStepProps) {
-  const presets = getAllChallengePresets();
-
-  const handlePresetSelect = (presetId: string) => {
-    const preset = CHALLENGE_PRESETS[presetId];
+  const handlePresetSelect = (presetKey: string) => {
+    const preset = CHALLENGE_PRESETS[presetKey];
     if (preset) {
       updateData({
-        presetId,
+        presetId: presetKey,
         challengeProvider: preset.provider,
         overRollMaxPercent: preset.overRollMaxPercent,
         dailyMaxPercent: preset.dailyMaxPercent,
-        challengePhase: presetId.includes('PHASE1') || presetId.includes('P1')
+        challengePhase: presetKey.includes('PHASE1') || presetKey.includes('P1')
           ? 'Phase 1'
-          : presetId.includes('PHASE2') || presetId.includes('P2')
+          : presetKey.includes('PHASE2') || presetKey.includes('P2')
           ? 'Phase 2'
-          : presetId.includes('FUNDED')
+          : presetKey.includes('FUNDED')
           ? 'Funded'
           : 'Standard',
       });
@@ -78,12 +76,12 @@ export function ProviderSelectionStep({
           Select Challenge Provider <span className="text-red-500">*</span>
         </label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {presets.map((preset) => {
-            const isSelected = data.presetId === preset.id;
+          {Object.entries(CHALLENGE_PRESETS).map(([presetKey, preset]) => {
+            const isSelected = data.presetId === presetKey;
             return (
               <button
-                key={preset.id}
-                onClick={() => handlePresetSelect(preset.id)}
+                key={presetKey}
+                onClick={() => handlePresetSelect(presetKey)}
                 className={`p-4 border-2 rounded-lg text-left transition-all hover:border-primary ${
                   isSelected
                     ? 'border-primary bg-primary/5'

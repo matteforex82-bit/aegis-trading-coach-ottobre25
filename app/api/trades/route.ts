@@ -29,7 +29,6 @@ export async function GET(request: NextRequest) {
       orderBy: {
         openTime: "desc",
       },
-      take: 100, // Limit to last 100 trades
     })
 
     return NextResponse.json(trades)
