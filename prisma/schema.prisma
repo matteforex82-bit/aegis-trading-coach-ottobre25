@@ -179,6 +179,10 @@ model TradingAccount {
   leverage        Int?
   lastSyncAt      DateTime?
 
+  // MT5 Sync Strategy v2 Fields
+  lastSyncedTicket String?       // Last ticket synced (for incremental checks)
+  lastFullSyncAt   DateTime?     // When full history sync completed
+
   // Execution Layer Fields
   lockMode        LockMode      @default(MEDIUM)
   automationMode  AutomationMode @default(MANUAL)
