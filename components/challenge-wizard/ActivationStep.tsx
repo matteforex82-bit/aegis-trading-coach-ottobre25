@@ -16,6 +16,7 @@ export function ActivationStep({ data, onComplete }: ActivationStepProps) {
   const [agreed, setAgreed] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
 
   const handleActivation = async () => {
@@ -26,6 +27,7 @@ export function ActivationStep({ data, onComplete }: ActivationStepProps) {
 
     setIsActivating(true);
     setError(null);
+    setValidationErrors([]);
 
     try {
       const response = await fetch('/api/challenge-setup', {
@@ -37,6 +39,12 @@ export function ActivationStep({ data, onComplete }: ActivationStepProps) {
       const result = await response.json();
 
       if (!response.ok) {
+        // Show detailed validation errors if available
+        if (result.validationErrors && result.validationErrors.length > 0) {
+          setValidationErrors(result.validationErrors);
+          setError('Please fix the following issues:');
+          return;
+        }
         throw new Error(result.error || 'Failed to activate challenge setup');
       }
 
@@ -117,7 +125,16 @@ export function ActivationStep({ data, onComplete }: ActivationStepProps) {
       {error && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            <div>{error}</div>
+            {validationErrors.length > 0 && (
+              <ul className="mt-2 space-y-1 list-disc list-inside text-sm">
+                {validationErrors.map((err, index) => (
+                  <li key={index}>{err}</li>
+                ))}
+              </ul>
+            )}
+          </AlertDescription>
         </Alert>
       )}
 
