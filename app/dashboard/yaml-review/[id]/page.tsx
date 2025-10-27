@@ -103,7 +103,7 @@ export default function YAMLReviewPage() {
 
       setSuccess(true);
       setTimeout(() => {
-        router.push('/dashboard/trades');
+        router.push('/dashboard/trade-orders');
       }, 2000);
     } catch (err: any) {
       setError(err.message);
