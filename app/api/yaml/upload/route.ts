@@ -115,6 +115,9 @@ export async function POST(request: NextRequest) {
     let parsedData: YAMLData;
     try {
       parsedData = yaml.load(rawYAML) as YAMLData;
+      console.log('[YAML Upload] Parsed data:', JSON.stringify(parsedData, null, 2));
+      console.log('[YAML Upload] Assets array:', parsedData?.assets);
+      console.log('[YAML Upload] Assets length:', parsedData?.assets?.length);
     } catch (parseError: any) {
       return NextResponse.json({
         error: 'YAML parsing failed',
