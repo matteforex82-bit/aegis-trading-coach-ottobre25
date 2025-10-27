@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { PrismaClient } from '@prisma/client'
+import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 import { randomBytes } from 'crypto'
 import { checkApiKeyLimit } from '@/lib/plan-limits'
-
-const prisma = new PrismaClient()
 
 // GET - List all API keys for current user
 export async function GET(request: NextRequest) {
@@ -17,7 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { email: session.user.email },
     })
 
@@ -25,7 +23,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const apiKeys = await prisma.apiKey.findMany({
+    const apiKeys = await db.apiKey.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -57,7 +55,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { email: session.user.email },
     })
 
@@ -91,7 +89,7 @@ export async function POST(request: NextRequest) {
     const rawKey = 'sk_aegis_' + randomBytes(32).toString('hex')
     const hashedKey = await bcrypt.hash(rawKey, 12)
 
-    const apiKey = await prisma.apiKey.create({
+    const apiKey = await db.apiKey.create({
       data: {
         key: hashedKey,
         userId: user.id,
@@ -123,7 +121,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { email: session.user.email },
     })
 
@@ -139,7 +137,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check ownership
-    const apiKey = await prisma.apiKey.findUnique({
+    const apiKey = await db.apiKey.findUnique({
       where: { id: keyId },
     })
 
@@ -152,7 +150,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Soft delete by marking as inactive
-    await prisma.apiKey.update({
+    await db.apiKey.update({
       where: { id: keyId },
       data: { isActive: false },
     })
