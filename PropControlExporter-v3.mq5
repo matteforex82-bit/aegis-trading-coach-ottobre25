@@ -129,18 +129,22 @@ void CheckAndExecutePendingOrders() {
     string accountLogin = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
     string url = API_PENDING_ORDERS_URL + "/" + accountLogin;
 
-    char result[];
-    string headers;
+    // FIX: Use uchar[] instead of char[] for WebRequest
+    uchar send_data[];      // Empty array for GET request
+    uchar result_data[];    // Response data
+    string result_headers;  // Separate variable for response headers
     int timeout = 5000;
 
-    // Add API Key header
-    headers = "Content-Type: application/json\r\n";
-    headers += "X-API-Key: " + API_KEY + "\r\n";
+    // Request headers (separate variable)
+    string request_headers = "Content-Type: application/json\r\n";
+    request_headers += "X-API-Key: " + API_KEY + "\r\n";
 
-    int res = WebRequest("GET", url, headers, timeout, NULL, result, headers);
+    // FIX: Use correct WebRequest signature
+    int res = WebRequest("GET", url, request_headers, timeout, send_data, result_data, result_headers);
 
     if(res == 200) {
-        string response = CharArrayToString(result);
+        // Convert uchar[] to string
+        string response = CharArrayToString(result_data);
 
         if(ENABLE_LOGGING) {
             Print("📥 Pending orders response: ", response);
@@ -307,16 +311,21 @@ void ConfirmExecution(string orderId, string mt5Ticket, double executionPrice, s
 
     json += "}";
 
-    char post[], result[];
-    string headers;
+    // FIX: Use uchar[] instead of char[]
+    uchar send_data[];      // POST data
+    uchar result_data[];    // Response data
+    string result_headers;  // Separate variable for response headers
     int timeout = 5000;
 
-    StringToCharArray(json, post, 0, StringLen(json));
+    // Convert JSON string to uchar array
+    StringToCharArray(json, send_data, 0, StringLen(json));
 
-    headers = "Content-Type: application/json\r\n";
-    headers += "X-API-Key: " + API_KEY + "\r\n";
+    // Request headers (separate variable)
+    string request_headers = "Content-Type: application/json\r\n";
+    request_headers += "X-API-Key: " + API_KEY + "\r\n";
 
-    int res = WebRequest("POST", API_CONFIRM_EXECUTION_URL, headers, timeout, post, result, headers);
+    // FIX: Use correct WebRequest signature
+    int res = WebRequest("POST", API_CONFIRM_EXECUTION_URL, request_headers, timeout, send_data, result_data, result_headers);
 
     if(res == 200) {
         Print("✅ Execution confirmed to server");
@@ -594,7 +603,11 @@ string BuildPositionJSON(ulong ticket) {
     json += "\"openPrice\":" + DoubleToString(PositionGetDouble(POSITION_PRICE_OPEN), 5) + ",";
     json += "\"openTime\":\"" + TimeToString(PositionGetInteger(POSITION_TIME), TIME_DATE|TIME_SECONDS) + "\",";
     json += "\"profit\":" + DoubleToString(PositionGetDouble(POSITION_PROFIT), 2) + ",";
-    json += "\"commission\":" + DoubleToString(PositionGetDouble(POSITION_COMMISSION), 2) + ",";
+
+    // FIX: POSITION_COMMISSION is deprecated in MT5
+    // Commission is only available in history deals, not open positions
+    json += "\"commission\":0,";
+
     json += "\"swap\":" + DoubleToString(PositionGetDouble(POSITION_SWAP), 2) + ",";
     json += "\"stopLoss\":" + DoubleToString(PositionGetDouble(POSITION_SL), 5) + ",";
     json += "\"takeProfit\":" + DoubleToString(PositionGetDouble(POSITION_TP), 5);
@@ -692,22 +705,26 @@ string GetDealType(ulong ticket) {
 //| Helper: Send data to AEGIS server                               |
 //+------------------------------------------------------------------+
 bool SendToServer(string jsonData) {
-    char post[], result[];
-    string headers;
+    // FIX: Use uchar[] instead of char[]
+    uchar send_data[];      // POST data
+    uchar result_data[];    // Response data
+    string result_headers;  // Separate variable for response headers
     int timeout = 5000;
 
-    // Convert JSON to char array
-    StringToCharArray(jsonData, post, 0, StringLen(jsonData));
+    // Convert JSON string to uchar array
+    StringToCharArray(jsonData, send_data, 0, StringLen(jsonData));
 
-    // Add API Key header
-    headers = "Content-Type: application/json\r\n";
-    headers += "X-API-Key: " + API_KEY + "\r\n";
+    // Request headers (separate variable)
+    string request_headers = "Content-Type: application/json\r\n";
+    request_headers += "X-API-Key: " + API_KEY + "\r\n";
 
-    int res = WebRequest("POST", API_URL, headers, timeout, post, result, headers);
+    // FIX: Use correct WebRequest signature
+    int res = WebRequest("POST", API_URL, request_headers, timeout, send_data, result_data, result_headers);
 
     if(res == 200) {
         if(ENABLE_LOGGING) {
-            string response = CharArrayToString(result);
+            // Convert uchar[] to string
+            string response = CharArrayToString(result_data);
             Print("✅ Server response: ", response);
         }
         return true;
