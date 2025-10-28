@@ -42,12 +42,14 @@ export async function POST(request: NextRequest) {
             symbol: order.symbol,
             direction: order.direction,
             orderType: order.orderType,
+            type: order.direction, // Legacy field
             entryPrice: order.entryPrice,
             stopLoss: order.stopLoss,
             takeProfit1: order.takeProfit1,
             takeProfit2: order.takeProfit2,
             takeProfit3: order.takeProfit3,
             riskAmount: order.riskAmount,
+            riskPercent: 1.0, // Default 1%
             lotSize: order.lotSize,
             status: 'PENDING',
           },

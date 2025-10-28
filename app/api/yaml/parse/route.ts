@@ -1,7 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { parseYAMLToOrders } from '@/lib/yaml-to-orders';
+import yaml from 'js-yaml';
+
+interface YAMLAsset {
+  symbol: string;
+  trading_setup: {
+    primary_entry?: {
+      type: string;
+      price: number;
+    };
+    secondary_entry?: {
+      type: string;
+      price: number;
+    };
+    stop_loss: {
+      price: number;
+    };
+    take_profit_targets?: Array<{
+      price: number;
+      close_percentage?: number;
+    }>;
+  };
+}
+
+interface YAMLData {
+  assets: YAMLAsset[];
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,23 +50,40 @@ export async function POST(request: NextRequest) {
     // Read file content
     const fileContent = await file.text();
 
-    // Parse YAML to orders (without creating them in DB)
-    const orders = await parseYAMLToOrders(fileContent, accountId);
+    // Parse YAML
+    const parsedData = yaml.load(fileContent) as YAMLData;
+
+    if (!parsedData?.assets || !Array.isArray(parsedData.assets)) {
+      return NextResponse.json({ error: 'Invalid YAML structure' }, { status: 400 });
+    }
+
+    // Convert to simple order format for preview
+    const orders = parsedData.assets.map((asset: YAMLAsset) => {
+      const entry = asset.trading_setup.primary_entry || asset.trading_setup.secondary_entry;
+      if (!entry) return null;
+
+      const direction = entry.type.toUpperCase().includes('BUY') ? 'BUY' : 'SELL';
+      const orderType = entry.type.toLowerCase().includes('limit')
+        ? (direction === 'BUY' ? 'BUY_LIMIT' : 'SELL_LIMIT')
+        : (direction === 'BUY' ? 'BUY_STOP' : 'SELL_STOP');
+
+      return {
+        symbol: asset.symbol,
+        direction,
+        orderType,
+        entryPrice: entry.price,
+        stopLoss: asset.trading_setup.stop_loss.price,
+        takeProfit1: asset.trading_setup.take_profit_targets?.[0]?.price,
+        takeProfit2: asset.trading_setup.take_profit_targets?.[1]?.price,
+        takeProfit3: asset.trading_setup.take_profit_targets?.[2]?.price,
+        riskAmount: 100, // Default risk
+        lotSize: 0.01, // Default lot size
+      };
+    }).filter(Boolean);
 
     return NextResponse.json({
       success: true,
-      orders: orders.map(order => ({
-        symbol: order.symbol,
-        direction: order.direction,
-        orderType: order.orderType,
-        entryPrice: order.entryPrice,
-        stopLoss: order.stopLoss,
-        takeProfit1: order.takeProfit1,
-        takeProfit2: order.takeProfit2,
-        takeProfit3: order.takeProfit3,
-        riskAmount: order.riskAmount,
-        lotSize: order.lotSize,
-      })),
+      orders,
     });
   } catch (error: any) {
     console.error('YAML parse error:', error);
