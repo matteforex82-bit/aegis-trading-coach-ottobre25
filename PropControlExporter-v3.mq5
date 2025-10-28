@@ -183,8 +183,11 @@ int ExtractOrderCount(string json) {
     if(end < 0) end = StringFind(json, "}", start);
 
     string countStr = StringSubstr(json, start, end - start);
-    StringTrimLeft(countStr);
-    StringTrimRight(countStr);
+
+    // Trim whitespace manually
+    while(StringLen(countStr) > 0 && (StringGetCharacter(countStr, 0) == ' ' || StringGetCharacter(countStr, 0) == '\t')) {
+        countStr = StringSubstr(countStr, 1);
+    }
 
     return (int)StringToInteger(countStr);
 }
@@ -351,8 +354,14 @@ double ExtractJSONDouble(string json, string key) {
     if(end < 0) return 0;
 
     string valueStr = StringSubstr(json, start, end - start);
-    StringTrimLeft(valueStr);
-    StringTrimRight(valueStr);
+
+    // Trim whitespace manually
+    while(StringLen(valueStr) > 0 && (StringGetCharacter(valueStr, 0) == ' ' || StringGetCharacter(valueStr, 0) == '\t')) {
+        valueStr = StringSubstr(valueStr, 1);
+    }
+    while(StringLen(valueStr) > 0 && (StringGetCharacter(valueStr, StringLen(valueStr)-1) == ' ' || StringGetCharacter(valueStr, StringLen(valueStr)-1) == '\t')) {
+        valueStr = StringSubstr(valueStr, 0, StringLen(valueStr)-1);
+    }
 
     // Remove quotes if present
     StringReplace(valueStr, "\"", "");
