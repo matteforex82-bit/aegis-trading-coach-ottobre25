@@ -41,20 +41,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update orders to EXECUTED status
-    // In a real implementation, this would:
-    // 1. Send orders to MT5 via Expert Advisor
-    // 2. Wait for confirmation
-    // 3. Update status based on MT5 response
-    //
-    // For now, we'll just mark them as EXECUTED
+    // Update orders to APPROVED status
+    // This marks them as ready for MT5 EA to pick up and execute
+    // EA will poll /api/trade-orders/pending/{login} and execute them
+    // Then EA will call /api/trade-orders/confirm-execution to update status to ACTIVE
     const updatedOrders = await Promise.all(
       orders.map((order) =>
         prisma.tradeOrder.update({
           where: { id: order.id },
           data: {
-            status: 'EXECUTED',
-            executedAt: new Date(),
+            status: 'APPROVED', // Changed from EXECUTED to APPROVED
+            executedAt: new Date(), // Timestamp when user approved
           },
         })
       )

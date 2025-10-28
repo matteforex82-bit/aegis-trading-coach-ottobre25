@@ -37,6 +37,8 @@ interface TradeOrder {
   riskAmount: number;
   lotSize: number;
   status: string;
+  mt5Ticket?: string;
+  executionPrice?: number;
   createdAt: string;
 }
 
@@ -136,7 +138,9 @@ export default function TradeOrdersPage() {
   };
 
   const pendingOrders = orders.filter(o => o.status === 'PENDING');
-  const executedOrders = orders.filter(o => o.status === 'EXECUTED');
+  const approvedOrders = orders.filter(o => o.status === 'APPROVED'); // Waiting for MT5 EA
+  const activeOrders = orders.filter(o => o.status === 'ACTIVE'); // Executed on MT5
+  const executedOrders = orders.filter(o => o.status === 'EXECUTED'); // Legacy status
 
   if (loading) {
     return (
@@ -280,7 +284,107 @@ export default function TradeOrdersPage() {
         </CardContent>
       </Card>
 
-      {/* Executed Orders */}
+      {/* Approved Orders (Waiting for MT5) */}
+      {approvedOrders.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Approved - Waiting for MT5 ({approvedOrders.length})</CardTitle>
+            <CardDescription>
+              Orders approved and waiting for MT5 EA to execute
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Symbol</TableHead>
+                  <TableHead>Direction</TableHead>
+                  <TableHead>Entry</TableHead>
+                  <TableHead>Lot Size</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Approved At</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {approvedOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">{order.symbol}</TableCell>
+                    <TableCell>
+                      <Badge variant={order.direction === 'BUY' ? 'default' : 'secondary'}>
+                        {order.direction}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{order.entryPrice.toFixed(5)}</TableCell>
+                    <TableCell>{order.lotSize.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Badge className="bg-yellow-100 text-yellow-800">
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        APPROVED
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(order.createdAt).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Active Orders (Executed on MT5) */}
+      {activeOrders.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Active on MT5 ({activeOrders.length})</CardTitle>
+            <CardDescription>
+              Orders successfully executed on MT5 platform
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Symbol</TableHead>
+                  <TableHead>Direction</TableHead>
+                  <TableHead>Entry</TableHead>
+                  <TableHead>MT5 Ticket</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Executed At</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activeOrders.slice(0, 10).map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">{order.symbol}</TableCell>
+                    <TableCell>
+                      <Badge variant={order.direction === 'BUY' ? 'default' : 'secondary'}>
+                        {order.direction}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{order.entryPrice.toFixed(5)}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {order.mt5Ticket || 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-green-100 text-green-800">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        ACTIVE
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(order.createdAt).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Executed Orders (Legacy) */}
       {executedOrders.length > 0 && (
         <Card>
           <CardHeader>
