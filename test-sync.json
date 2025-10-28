@@ -1,0 +1,13 @@
+{
+  "account": {
+    "login": "4000072938",
+    "broker": "Tradeslide Trading Tech Limited",
+    "server": "Darwinex-Live",
+    "balance": 10000,
+    "equity": 10000,
+    "currency": "USD"
+  },
+  "syncType": "FULL_HISTORY",
+  "totalDeals": 1,
+  "trades": []
+}
