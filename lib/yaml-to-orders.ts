@@ -256,9 +256,9 @@ function generateOrderData(
   // Build comment
   const comment = buildOrderComment(asset, entryType);
 
-  // Determine direction and order type
-  const direction = tradeType.includes('buy') ? 'BUY' : 'SELL';
-  const orderType = tradeType.includes('limit')
+  // Determine direction and order type (case-insensitive check)
+  const direction = tradeType.toUpperCase().includes('BUY') ? 'BUY' : 'SELL';
+  const orderType = tradeType.toLowerCase().includes('limit')
     ? (direction === 'BUY' ? 'BUY_LIMIT' : 'SELL_LIMIT')
     : (direction === 'BUY' ? 'BUY_STOP' : 'SELL_STOP');
 
