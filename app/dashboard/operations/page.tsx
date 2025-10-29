@@ -504,82 +504,37 @@ export default function TradeOperationsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Symbol</TableHead>
-                      <TableHead>Direction</TableHead>
-                      <TableHead>Entry</TableHead>
-                      <TableHead>Stop Loss</TableHead>
-                      <TableHead>Take Profit</TableHead>
-                      <TableHead>Risk</TableHead>
-                      <TableHead>Lots</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {parsedOrders.map((order, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">{order.symbol}</TableCell>
-                        <TableCell>
-                          {order.direction === 'BUY' ? (
-                            <Badge className="bg-green-100 text-green-800">
-                              <TrendingUp className="w-3 h-3 mr-1" />
-                              BUY
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-red-100 text-red-800">
-                              <TrendingDown className="w-3 h-3 mr-1" />
-                              SELL
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.00001"
-                            value={order.entryPrice}
-                            onChange={(e) => updateParsedOrder(index, 'entryPrice', parseFloat(e.target.value))}
-                            className="w-24"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.00001"
-                            value={order.stopLoss}
-                            onChange={(e) => updateParsedOrder(index, 'stopLoss', parseFloat(e.target.value))}
-                            className="w-24"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.00001"
-                            value={order.takeProfit1 || ''}
-                            onChange={(e) => updateParsedOrder(index, 'takeProfit1', parseFloat(e.target.value))}
-                            className="w-24"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={order.riskAmount}
-                            onChange={(e) => updateParsedOrder(index, 'riskAmount', parseFloat(e.target.value))}
-                            className="w-20"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={order.lotSize}
-                            onChange={(e) => updateParsedOrder(index, 'lotSize', parseFloat(e.target.value))}
-                            className="w-20"
-                          />
-                        </TableCell>
-                        <TableCell>
+                <div className="space-y-4">
+                  {parsedOrders.map((order, index) => {
+                    const isAnalysisOnly = order.orderType === 'ANALYSIS_ONLY';
+
+                    return (
+                      <div key={index} className="border rounded-lg p-4 space-y-3">
+                        {/* Header Row */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-lg">{order.symbol}</span>
+                            {order.direction === 'BUY' ? (
+                              <Badge className="bg-green-100 text-green-800">
+                                <TrendingUp className="w-3 h-3 mr-1" />
+                                BUY
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-red-100 text-red-800">
+                                <TrendingDown className="w-3 h-3 mr-1" />
+                                SELL
+                              </Badge>
+                            )}
+                            {isAnalysisOnly ? (
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                📊 ANALYSIS ONLY
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                ✅ EXECUTABLE
+                              </Badge>
+                            )}
+                          </div>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -587,11 +542,132 @@ export default function TradeOperationsPage() {
                           >
                             <XCircle className="w-4 h-4 text-red-500" />
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        </div>
+
+                        {/* Setup Details */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                          {order.category && (
+                            <div>
+                              <span className="text-muted-foreground">Category:</span>
+                              <span className="ml-2 font-medium">{order.category}</span>
+                            </div>
+                          )}
+                          {order.timeframe && (
+                            <div>
+                              <span className="text-muted-foreground">Timeframe:</span>
+                              <span className="ml-2 font-medium">{order.timeframe}</span>
+                            </div>
+                          )}
+                          {order.wavePattern && (
+                            <div>
+                              <span className="text-muted-foreground">Pattern:</span>
+                              <span className="ml-2 font-medium">{order.wavePattern}</span>
+                            </div>
+                          )}
+                          {order.confidence && (
+                            <div>
+                              <span className="text-muted-foreground">Confidence:</span>
+                              <span className="ml-2 font-medium">{order.confidence}%</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Price Fields */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Entry Price</label>
+                            <Input
+                              type="number"
+                              step="0.00001"
+                              value={order.entryPrice || ''}
+                              onChange={(e) => updateParsedOrder(index, 'entryPrice', e.target.value ? parseFloat(e.target.value) : null)}
+                              placeholder={isAnalysisOnly ? "Not set" : "Required"}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Stop Loss</label>
+                            <Input
+                              type="number"
+                              step="0.00001"
+                              value={order.stopLoss || ''}
+                              onChange={(e) => updateParsedOrder(index, 'stopLoss', e.target.value ? parseFloat(e.target.value) : null)}
+                              placeholder={isAnalysisOnly ? "Not set" : "Required"}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Target Area</label>
+                            <Input
+                              type="number"
+                              step="0.00001"
+                              value={order.targetArea || ''}
+                              onChange={(e) => updateParsedOrder(index, 'targetArea', e.target.value ? parseFloat(e.target.value) : null)}
+                              placeholder="Optional"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Invalidation</label>
+                            <Input
+                              type="number"
+                              step="0.00001"
+                              value={order.invalidation || ''}
+                              onChange={(e) => updateParsedOrder(index, 'invalidation', e.target.value ? parseFloat(e.target.value) : null)}
+                              placeholder="Optional"
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Take Profits */}
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground">TP1</label>
+                            <Input
+                              type="number"
+                              step="0.00001"
+                              value={order.takeProfit1 || ''}
+                              onChange={(e) => updateParsedOrder(index, 'takeProfit1', e.target.value ? parseFloat(e.target.value) : null)}
+                              placeholder="Optional"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">TP2</label>
+                            <Input
+                              type="number"
+                              step="0.00001"
+                              value={order.takeProfit2 || ''}
+                              onChange={(e) => updateParsedOrder(index, 'takeProfit2', e.target.value ? parseFloat(e.target.value) : null)}
+                              placeholder="Optional"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">TP3</label>
+                            <Input
+                              type="number"
+                              step="0.00001"
+                              value={order.takeProfit3 || ''}
+                              onChange={(e) => updateParsedOrder(index, 'takeProfit3', e.target.value ? parseFloat(e.target.value) : null)}
+                              placeholder="Optional"
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Analysis Note */}
+                        {order.notes && (
+                          <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                            <span className="text-xs font-semibold text-blue-900">Note: </span>
+                            <span className="text-xs text-blue-800">{order.notes}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
           )}
