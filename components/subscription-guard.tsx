@@ -80,14 +80,8 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-muted p-4 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">
-                  <strong>Current Plan:</strong> {subscription?.plan || 'FREE'}
-                </p>
-                <p className="text-sm text-muted-foreground mb-2">
-                  <strong>Status:</strong> {subscription?.status || 'Inactive'}
-                </p>
                 <p className="text-sm text-muted-foreground">
-                  To access advanced trading analytics, account management, and all premium features, please choose a subscription plan.
+                  To access AEGIS Trading Coach platform features including advanced trading analytics, account management, MT5 execution, and risk management tools, please subscribe to one of our plans.
                 </p>
               </div>
 
