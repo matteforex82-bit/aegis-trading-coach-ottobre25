@@ -311,6 +311,8 @@ enum AssetCategory {
   FOREX
   INDICES
   COMMODITIES
+  METALS
+  CRYPTO
   BITCOIN
 }
 
@@ -336,18 +338,23 @@ model TradingSetup {
   waveCount       String?           // "1-2-3-4-5", "A-B-C"
 
   // Price Levels
-  entryPrice      Float
-  stopLoss        Float
+  entryPrice      Float?            // Optional for analysis-only setups
+  stopLoss        Float?            // Optional for analysis-only setups
   takeProfit1     Float?
   takeProfit2     Float?
   takeProfit3     Float?
   invalidation    Float?            // Prezzo invalidazione setup
+  targetArea      Float?            // Target generico (usato in waiting_list)
+
+  // Analysis Details (new fields for waiting_list format)
+  confidence      Int?              // Confidence level 0-100
+  analysis        String?           @db.Text  // Detailed Elliott Wave analysis
 
   // Metadata
   analysisDate    DateTime          // Data dell'analisi Elliott
   publishedAt     DateTime          @default(now())
   expiresAt       DateTime?         // Setup scade dopo X giorni (opzionale)
-  notes           String?           @db.Text
+  notes           String?           @db.Text  // Short note
   pdfUrl          String?           // Link al PDF originale (opzionale)
 
   // Premium Feature Control
