@@ -63,17 +63,40 @@ export function matchSetup(
 
 /**
  * Find duplicate setup based on symbol + entryPrice + stopLoss
+ * For analysis-only setups (no entry/stop), match by symbol + targetArea
  */
 function findDuplicate(
   parsedSetup: ParsedTradingSetup,
   existingSetups: TradingSetup[]
 ): TradingSetup | undefined {
-  return existingSetups.find(
-    (existing) =>
-      existing.symbol === parsedSetup.symbol &&
-      Math.abs(existing.entryPrice - parsedSetup.entryPrice) < 0.00001 && // Float comparison with epsilon
-      Math.abs(existing.stopLoss - parsedSetup.stopLoss) < 0.00001
-  )
+  return existingSetups.find((existing) => {
+    // Must match symbol
+    if (existing.symbol !== parsedSetup.symbol) return false
+
+    // If both have execution prices, compare those
+    if (
+      existing.entryPrice !== null &&
+      parsedSetup.entryPrice !== null &&
+      existing.stopLoss !== null &&
+      parsedSetup.stopLoss !== null
+    ) {
+      return (
+        Math.abs(existing.entryPrice - parsedSetup.entryPrice) < 0.00001 &&
+        Math.abs(existing.stopLoss - parsedSetup.stopLoss) < 0.00001
+      )
+    }
+
+    // If both have targetArea (analysis-only), compare that
+    if (
+      existing.targetArea !== null &&
+      parsedSetup.targetArea !== null
+    ) {
+      return Math.abs(existing.targetArea - parsedSetup.targetArea) < 0.00001
+    }
+
+    // Otherwise, consider them different
+    return false
+  })
 }
 
 /**
@@ -91,10 +114,15 @@ function hasSignificantChanges(
     existingSetup.timeframe !== parsedSetup.timeframe ||
     existingSetup.wavePattern !== parsedSetup.wavePattern ||
     existingSetup.waveCount !== parsedSetup.waveCount ||
+    !pricesEqual(existingSetup.entryPrice, parsedSetup.entryPrice) ||
+    !pricesEqual(existingSetup.stopLoss, parsedSetup.stopLoss) ||
     !pricesEqual(existingSetup.takeProfit1, parsedSetup.takeProfit1) ||
     !pricesEqual(existingSetup.takeProfit2, parsedSetup.takeProfit2) ||
     !pricesEqual(existingSetup.takeProfit3, parsedSetup.takeProfit3) ||
     !pricesEqual(existingSetup.invalidation, parsedSetup.invalidation) ||
+    !pricesEqual(existingSetup.targetArea, parsedSetup.targetArea) ||
+    existingSetup.confidence !== parsedSetup.confidence ||
+    existingSetup.analysis !== parsedSetup.analysis ||
     !datesEqual(existingSetup.expiresAt, parsedSetup.expiresAt) ||
     existingSetup.notes !== parsedSetup.notes ||
     existingSetup.pdfUrl !== parsedSetup.pdfUrl ||
