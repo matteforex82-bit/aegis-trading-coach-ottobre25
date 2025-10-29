@@ -319,8 +319,21 @@ function parseAndValidateSetup(
     return { success: false, errors, index }
   }
 
+  // Map Italian category names to English enum values
+  let mappedCategory = raw.category!
+  const categoryLower = raw.category!.toLowerCase()
+  if (categoryLower.includes('indic')) {
+    mappedCategory = 'INDICES'  // INDICI → INDICES
+  } else if (categoryLower.includes('metal')) {
+    mappedCategory = 'METALS'   // METALLI → METALS
+  } else if (categoryLower.includes('commod')) {
+    mappedCategory = 'COMMODITIES'
+  } else if (categoryLower.includes('crypto') || categoryLower.includes('btc')) {
+    mappedCategory = 'CRYPTO'
+  }
+
   // Validate and normalize category
-  const categoryUpper = raw.category!.toUpperCase()
+  const categoryUpper = mappedCategory.toUpperCase()
   if (!Object.values(AssetCategory).includes(categoryUpper as AssetCategory)) {
     errors.push({
       field: "category",
