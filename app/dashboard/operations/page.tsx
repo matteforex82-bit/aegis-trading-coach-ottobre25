@@ -57,13 +57,24 @@ interface ParsedOrder {
   symbol: string;
   direction: string;
   orderType: string;
-  entryPrice: number;
-  stopLoss: number;
-  takeProfit1?: number;
-  takeProfit2?: number;
-  takeProfit3?: number;
+  entryPrice: number | null;
+  stopLoss: number | null;
+  takeProfit1?: number | null;
+  takeProfit2?: number | null;
+  takeProfit3?: number | null;
   riskAmount: number;
-  lotSize: number;
+  lotSize: number | null;
+  // Elliott Wave specific fields
+  category?: string;
+  timeframe?: string;
+  wavePattern?: string | null;
+  waveCount?: string | null;
+  targetArea?: number | null;
+  invalidation?: number | null;
+  confidence?: number | null;
+  analysis?: string | null;
+  analysisDate?: string;
+  notes?: string | null;
 }
 
 export default function TradeOperationsPage() {
