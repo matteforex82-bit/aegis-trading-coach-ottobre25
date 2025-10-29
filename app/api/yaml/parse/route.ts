@@ -53,12 +53,18 @@ export async function POST(request: NextRequest) {
     // Parse YAML
     const parsedData = yaml.load(fileContent) as YAMLData;
 
-    if (!parsedData?.assets || !Array.isArray(parsedData.assets)) {
-      return NextResponse.json({ error: 'Invalid YAML structure' }, { status: 400 });
+    // Support multiple formats: assets, setups, waiting_list
+    const dataArray = parsedData?.assets || parsedData?.setups || parsedData?.waiting_list;
+
+    if (!dataArray || !Array.isArray(dataArray)) {
+      return NextResponse.json({ error: 'Invalid YAML structure - missing assets, setups, or waiting_list array' }, { status: 400 });
     }
 
+    // If array is empty (like setups: []), skip to next option
+    const assets = dataArray.length > 0 ? dataArray : (parsedData?.waiting_list || parsedData?.setups || parsedData?.assets || []);
+
     // Convert to simple order format for preview
-    const orders = parsedData.assets.map((asset: YAMLAsset) => {
+    const orders = assets.map((asset: YAMLAsset) => {
       const entry = asset.trading_setup.primary_entry || asset.trading_setup.secondary_entry;
       if (!entry) return null;
 
