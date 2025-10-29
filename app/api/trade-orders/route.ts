@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
       orders: orders.map(order => ({
         id: order.id,
         symbol: order.symbol,
-        direction: order.orderType,
+        direction: order.direction, // Use direction field, not orderType
+        orderType: order.orderType, // Also include orderType
         entryPrice: order.entryPrice,
         stopLoss: order.stopLoss,
         takeProfit1: order.takeProfit1,
