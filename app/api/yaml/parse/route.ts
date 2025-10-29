@@ -25,7 +25,9 @@ interface YAMLAsset {
 }
 
 interface YAMLData {
-  assets: YAMLAsset[];
+  assets?: YAMLAsset[];
+  setups?: YAMLAsset[];
+  waiting_list?: YAMLAsset[];
 }
 
 export async function POST(request: NextRequest) {
