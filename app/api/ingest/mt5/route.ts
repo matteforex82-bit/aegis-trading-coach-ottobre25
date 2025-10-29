@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { AccountType, AccountStatus } from '@prisma/client'
-import bcrypt from 'bcryptjs'
 import { checkAccountLimit } from '@/lib/plan-limits'
 
 // CORS headers for MT5 EA
@@ -24,25 +23,25 @@ async function validateApiKey(request: NextRequest): Promise<{ valid: boolean; u
     return { valid: false, error: 'Invalid API Key format' }
   }
 
-  // Find all active API keys and check against hashed values
-  const apiKeys = await db.apiKey.findMany({
-    where: { isActive: true }
+  // Find API key by direct match (keys are stored in plaintext)
+  const apiKeyRecord = await db.apiKey.findUnique({
+    where: {
+      key: apiKey,
+      isActive: true
+    }
   })
 
-  for (const key of apiKeys) {
-    const isValid = await bcrypt.compare(apiKey, key.key)
-    if (isValid) {
-      // Update last used timestamp
-      await db.apiKey.update({
-        where: { id: key.id },
-        data: { lastUsedAt: new Date() }
-      })
-
-      return { valid: true, userId: key.userId }
-    }
+  if (!apiKeyRecord) {
+    return { valid: false, error: 'Invalid or expired API Key' }
   }
 
-  return { valid: false, error: 'Invalid or expired API Key' }
+  // Update last used timestamp
+  await db.apiKey.update({
+    where: { id: apiKeyRecord.id },
+    data: { lastUsedAt: new Date() }
+  })
+
+  return { valid: true, userId: apiKeyRecord.userId }
 }
 
 interface MT5Account {
