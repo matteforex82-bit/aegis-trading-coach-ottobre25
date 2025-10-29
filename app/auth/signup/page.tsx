@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, Suspense, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
@@ -17,10 +17,19 @@ const PLAN_NAMES: Record<string, string> = {
   enterprise: "Enterprise ($299/mo)",
 }
 
+const VALID_PLANS = ['starter', 'pro', 'enterprise']
+
 function SignUpForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const selectedPlan = searchParams.get('plan')
+
+  // Redirect to pricing if no valid plan is selected
+  useEffect(() => {
+    if (!selectedPlan || !VALID_PLANS.includes(selectedPlan.toLowerCase())) {
+      router.replace('/pricing')
+    }
+  }, [selectedPlan, router])
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -46,11 +55,11 @@ function SignUpForm() {
     setIsLoading(true)
 
     try {
-      // Step 1: Create account
+      // Step 1: Create account with selected plan
       const signupResponse = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, plan: selectedPlan }),
       })
 
       const signupData = await signupResponse.json()
@@ -72,14 +81,9 @@ function SignUpForm() {
         return
       }
 
-      // Step 3: Redirect to dashboard with plan parameter if selected
+      // Step 3: Redirect to dashboard with plan parameter
       // The dashboard will handle creating the Stripe checkout session
-      if (selectedPlan && selectedPlan !== 'free') {
-        router.push(`/dashboard?plan=${selectedPlan}`)
-      } else {
-        // No plan selected (or FREE plan) - redirect to dashboard
-        router.push("/dashboard?welcome=true")
-      }
+      router.push(`/dashboard?plan=${selectedPlan}`)
     } catch (error: any) {
       setError(error.message || "An error occurred. Please try again.")
       setIsLoading(false)
@@ -97,9 +101,9 @@ function SignUpForm() {
           <CardDescription className="text-center">
             Enter your details to create your account
           </CardDescription>
-          {selectedPlan && selectedPlan !== 'free' && (
+          {selectedPlan && (
             <Badge className="mt-2" variant="secondary">
-              Selected: {PLAN_NAMES[selectedPlan] || selectedPlan}
+              Selected: {PLAN_NAMES[selectedPlan.toLowerCase()] || selectedPlan}
             </Badge>
           )}
         </CardHeader>
@@ -164,17 +168,15 @@ function SignUpForm() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {selectedPlan && selectedPlan !== 'free' ? "Creating account & setting up checkout..." : "Creating account..."}
+                  Creating account & setting up checkout...
                 </>
               ) : (
-                selectedPlan && selectedPlan !== 'free' ? "Create Account & Subscribe" : "Create Account"
+                "Create Account & Subscribe"
               )}
             </Button>
-            {selectedPlan && selectedPlan !== 'free' && (
-              <p className="text-xs text-center text-muted-foreground">
-                14-day free trial • No credit card required until trial ends
-              </p>
-            )}
+            <p className="text-xs text-center text-muted-foreground">
+              You'll be redirected to secure checkout after creating your account
+            </p>
             <p className="text-sm text-center text-muted-foreground">
               Already have an account?{" "}
               <Link href="/auth/signin" className="text-primary hover:underline">

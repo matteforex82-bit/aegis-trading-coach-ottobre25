@@ -45,12 +45,30 @@ export async function middleware(request: NextRequest) {
   }
 
   // ============================================================================
-  // PRIORITY 2: Public Routes (no auth required)
+  // PRIORITY 2: Signup Plan Validation
+  // ============================================================================
+  // Force users to select a plan before signup
+
+  if (pathname === '/auth/signup') {
+    const { searchParams } = request.nextUrl
+    const plan = searchParams.get('plan')
+    const validPlans = ['starter', 'pro', 'enterprise']
+
+    // Redirect to pricing if no valid plan is selected
+    if (!plan || !validPlans.includes(plan.toLowerCase())) {
+      return NextResponse.redirect(new URL('/pricing', request.url))
+    }
+
+    // Valid plan selected - proceed
+    return NextResponse.next()
+  }
+
+  // ============================================================================
+  // PRIORITY 3: Public Routes (no auth required)
   // ============================================================================
 
   const publicPaths = [
     '/auth/signin',
-    '/auth/signup',
     '/api/auth',
     '/api/health',
     '/api/ping',
@@ -65,7 +83,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // ============================================================================
-  // PRIORITY 3: Admin Routes (ADMIN role required)
+  // PRIORITY 4: Admin Routes (ADMIN role required)
   // ============================================================================
 
   if (pathname.startsWith('/admin')) {
@@ -91,7 +109,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // ============================================================================
-  // PRIORITY 4: Protected Routes (NextAuth required)
+  // PRIORITY 5: Protected Routes (NextAuth required)
   // ============================================================================
 
   // Check for valid session token
