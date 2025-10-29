@@ -117,10 +117,10 @@ export function parseYamlFile(yamlContent: string): YamlParseResult {
     }
 
     // Extract metadata (optional)
-    const metadata = data.metadata || {}
+    const metadata = data.metadata || data.analysis_metadata || {}
 
-    // Extract setups array
-    const rawSetups = data.setups
+    // Extract setups array - support both 'setups' and 'assets' formats
+    const rawSetups = data.setups || data.assets
 
     if (!Array.isArray(rawSetups)) {
       return {
@@ -132,7 +132,7 @@ export function parseYamlFile(yamlContent: string): YamlParseResult {
             errors: [
               {
                 field: "setups",
-                message: "'setups' must be an array of trading setups.",
+                message: "'setups' or 'assets' must be an array of trading setups.",
               },
             ],
           },
@@ -160,8 +160,61 @@ export function parseYamlFile(yamlContent: string): YamlParseResult {
       }
     }
 
+    // Normalize assets format to setups format if needed
+    const normalizedSetups = rawSetups.map((item: any) => {
+      // If it's already in the flat format (has category, direction directly)
+      if (item.category && item.direction) {
+        return item
+      }
+
+      // If it's in the nested assets format (has trading_setup)
+      if (item.trading_setup) {
+        const entry = item.trading_setup.primary_entry || item.trading_setup.secondary_entry
+        if (!entry) return item // Invalid, will fail validation
+
+        // Determine direction from entry type
+        const entryType = entry.type || ''
+        const direction = entryType.toLowerCase().includes('buy') ? 'BUY' : 'SELL'
+
+        // Map asset_type to category
+        const assetType = item.asset_type || item.category || 'FOREX'
+        let category = 'FOREX'
+        if (assetType.toLowerCase().includes('index') || assetType.toLowerCase().includes('indic')) {
+          category = 'INDICES'
+        } else if (assetType.toLowerCase().includes('commod') || assetType.toLowerCase().includes('gold') || assetType.toLowerCase().includes('oil')) {
+          category = 'COMMODITIES'
+        } else if (assetType.toLowerCase().includes('btc') || assetType.toLowerCase().includes('bitcoin')) {
+          category = 'BITCOIN'
+        }
+
+        return {
+          category,
+          symbol: item.symbol,
+          direction,
+          timeframe: item.trading_setup.timeframe || item.timeframe || 'Daily',
+          wavePattern: item.wave_structure || item.trading_setup.wave_pattern,
+          waveCount: item.trading_setup.wave_count,
+          entryPrice: entry.price,
+          stopLoss: item.trading_setup.stop_loss?.price,
+          takeProfit1: item.trading_setup.take_profit_targets?.[0]?.price,
+          takeProfit2: item.trading_setup.take_profit_targets?.[1]?.price,
+          takeProfit3: item.trading_setup.take_profit_targets?.[2]?.price,
+          invalidation: item.trading_setup.invalidation?.price,
+          analysisDate: metadata.date || new Date().toISOString().split('T')[0],
+          expiresAt: item.expiresAt,
+          notes: item.notes || item.trading_setup.notes || entry.rationale,
+          pdfUrl: metadata.pdfUrl || item.pdfUrl,
+          isPremium: item.isPremium !== false,
+          requiredPlan: item.requiredPlan,
+          isActive: item.isActive !== false,
+        }
+      }
+
+      return item
+    })
+
     // Parse and validate each setup
-    const results: SetupParseResult[] = rawSetups.map((rawSetup, index) =>
+    const results: SetupParseResult[] = normalizedSetups.map((rawSetup, index) =>
       parseAndValidateSetup(rawSetup, index)
     )
 
