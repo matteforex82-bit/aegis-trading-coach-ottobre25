@@ -61,6 +61,8 @@ export function TradingSetupCard({ setup, isAdmin = false, onEdit, onDelete }: T
     FOREX: "bg-blue-500/10 text-blue-600 border-blue-500/20",
     INDICES: "bg-purple-500/10 text-purple-600 border-purple-500/20",
     COMMODITIES: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+    METALS: "bg-slate-500/10 text-slate-600 border-slate-500/20",
+    CRYPTO: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
     BITCOIN: "bg-orange-500/10 text-orange-600 border-orange-500/20",
   }[setup.category]
 
