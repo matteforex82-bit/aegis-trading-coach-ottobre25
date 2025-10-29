@@ -127,7 +127,18 @@ export function parseYamlFile(yamlContent: string): YamlParseResult {
     const metadata = data.metadata || data.analysis_metadata || {}
 
     // Extract setups array - support 'setups', 'assets', and 'waiting_list' formats
-    const rawSetups = data.setups || data.assets || data.waiting_list
+    // Check for non-empty arrays first, then fall back to empty ones
+    let rawSetups = null
+    if (Array.isArray(data.setups) && data.setups.length > 0) {
+      rawSetups = data.setups
+    } else if (Array.isArray(data.assets) && data.assets.length > 0) {
+      rawSetups = data.assets
+    } else if (Array.isArray(data.waiting_list) && data.waiting_list.length > 0) {
+      rawSetups = data.waiting_list
+    } else {
+      // Fall back to any existing array (even if empty)
+      rawSetups = data.setups || data.assets || data.waiting_list
+    }
 
     if (!Array.isArray(rawSetups)) {
       return {
@@ -405,7 +416,8 @@ function parseAndValidateSetup(
   // Validate confidence (must be 0-100 if present)
   let confidence: number | null = null
   if (raw.confidence !== undefined && raw.confidence !== null) {
-    confidence = typeof raw.confidence === 'number' ? raw.confidence : parseInt(raw.confidence.toString())
+    const confidenceValue = raw.confidence
+    confidence = typeof confidenceValue === 'number' ? confidenceValue : parseInt(String(confidenceValue))
     if (isNaN(confidence) || confidence < 0 || confidence > 100) {
       errors.push({
         field: "confidence",
