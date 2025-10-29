@@ -1,34 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import yaml from 'js-yaml';
-
-interface YAMLAsset {
-  symbol: string;
-  trading_setup: {
-    primary_entry?: {
-      type: string;
-      price: number;
-    };
-    secondary_entry?: {
-      type: string;
-      price: number;
-    };
-    stop_loss: {
-      price: number;
-    };
-    take_profit_targets?: Array<{
-      price: number;
-      close_percentage?: number;
-    }>;
-  };
-}
-
-interface YAMLData {
-  assets?: YAMLAsset[];
-  setups?: YAMLAsset[];
-  waiting_list?: YAMLAsset[];
-}
+import { parseYamlFile } from '@/lib/yaml-parser';
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,53 +25,83 @@ export async function POST(request: NextRequest) {
     // Read file content
     const fileContent = await file.text();
 
-    // Parse YAML
-    const parsedData = yaml.load(fileContent) as YAMLData;
+    console.log('[YAML Parse] Starting parse for account:', accountId);
 
-    // Support multiple formats: assets, setups, waiting_list
-    const dataArray = parsedData?.assets || parsedData?.setups || parsedData?.waiting_list;
+    // Use the comprehensive parser from lib/yaml-parser.ts
+    const parseResult = parseYamlFile(fileContent);
 
-    if (!dataArray || !Array.isArray(dataArray)) {
-      return NextResponse.json({ error: 'Invalid YAML structure - missing assets, setups, or waiting_list array' }, { status: 400 });
+    console.log('[YAML Parse] Result:', {
+      success: parseResult.success,
+      setupsCount: parseResult.setups.length,
+      errorsCount: parseResult.errors.length
+    });
+
+    // If parsing failed or has validation errors, return detailed error info
+    if (!parseResult.success || parseResult.errors.length > 0) {
+      console.error('[YAML Parse] Validation errors:', parseResult.errors);
+
+      return NextResponse.json({
+        error: 'YAML parsing failed',
+        message: `Found ${parseResult.errors.length} validation error(s)`,
+        parseErrors: parseResult.errors.map(err => ({
+          index: err.index,
+          setupSymbol: err.setupSymbol,
+          errors: err.errors.map(e => ({
+            field: e.field,
+            message: e.message,
+            value: e.value
+          }))
+        })),
+        metadata: parseResult.metadata
+      }, { status: 400 });
     }
 
-    // If array is empty (like setups: []), skip to next option
-    const assets = dataArray.length > 0 ? dataArray : (parsedData?.waiting_list || parsedData?.setups || parsedData?.assets || []);
-
-    // Convert to simple order format for preview
-    const orders = assets.map((asset: YAMLAsset) => {
-      const entry = asset.trading_setup.primary_entry || asset.trading_setup.secondary_entry;
-      if (!entry) return null;
-
-      const direction = entry.type.toUpperCase().includes('BUY') ? 'BUY' : 'SELL';
-      const orderType = entry.type.toLowerCase().includes('limit')
-        ? (direction === 'BUY' ? 'BUY_LIMIT' : 'SELL_LIMIT')
-        : (direction === 'BUY' ? 'BUY_STOP' : 'SELL_STOP');
+    // Convert ParsedTradingSetup[] to order preview format
+    const orders = parseResult.setups.map((setup) => {
+      // Determine order type based on whether we have execution prices or just analysis
+      const hasExecutionPrices = setup.entryPrice != null && setup.stopLoss != null;
 
       return {
-        symbol: asset.symbol,
-        direction,
-        orderType,
-        entryPrice: entry.price,
-        stopLoss: asset.trading_setup.stop_loss.price,
-        takeProfit1: asset.trading_setup.take_profit_targets?.[0]?.price,
-        takeProfit2: asset.trading_setup.take_profit_targets?.[1]?.price,
-        takeProfit3: asset.trading_setup.take_profit_targets?.[2]?.price,
+        symbol: setup.symbol,
+        direction: setup.direction,
+        orderType: hasExecutionPrices
+          ? (setup.direction === 'BUY' ? 'BUY_LIMIT' : 'SELL_LIMIT')
+          : 'ANALYSIS_ONLY',
+        category: setup.category,
+        timeframe: setup.timeframe,
+        wavePattern: setup.wavePattern,
+        waveCount: setup.waveCount,
+        entryPrice: setup.entryPrice,
+        stopLoss: setup.stopLoss,
+        takeProfit1: setup.takeProfit1,
+        takeProfit2: setup.takeProfit2,
+        takeProfit3: setup.takeProfit3,
+        invalidation: setup.invalidation,
+        targetArea: setup.targetArea,
+        confidence: setup.confidence,
+        analysis: setup.analysis,
+        analysisDate: setup.analysisDate,
+        notes: setup.notes,
         riskAmount: 100, // Default risk
-        lotSize: 0.01, // Default lot size
+        lotSize: hasExecutionPrices ? 0.01 : null, // Only for executable setups
       };
-    }).filter(Boolean);
+    });
+
+    console.log('[YAML Parse] Success! Converted', orders.length, 'setups to order format');
 
     return NextResponse.json({
       success: true,
       orders,
+      totalParsed: orders.length,
+      metadata: parseResult.metadata
     });
   } catch (error: any) {
-    console.error('YAML parse error:', error);
+    console.error('[YAML Parse] Unexpected error:', error);
     return NextResponse.json(
       {
         error: 'Failed to parse YAML',
         message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
       { status: 500 }
     );

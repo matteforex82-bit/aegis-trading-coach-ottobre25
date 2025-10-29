@@ -157,9 +157,27 @@ export default function TradeOperationsPage() {
 
       if (response.ok) {
         setParsedOrders(result.orders || []);
-        setSuccess(`Parsed ${result.orders?.length || 0} orders from YAML`);
+        setSuccess(`✅ Parsed ${result.orders?.length || 0} setups from YAML`);
+        console.log('[YAML Parse] Success:', result);
       } else {
-        setUploadError(result.error || 'Failed to parse YAML');
+        // Display detailed error information
+        let errorMessage = result.message || result.error || 'Failed to parse YAML';
+
+        // Add detailed validation errors if available
+        if (result.parseErrors && result.parseErrors.length > 0) {
+          const errorDetails = result.parseErrors.map((err: any) => {
+            const setupInfo = err.setupSymbol || `Setup #${err.index + 1}`;
+            const fieldErrors = err.errors.map((e: any) =>
+              `  • ${e.field}: ${e.message}${e.value !== undefined ? ` (value: ${e.value})` : ''}`
+            ).join('\n');
+            return `\n${setupInfo}:\n${fieldErrors}`;
+          }).join('\n');
+
+          errorMessage = `${errorMessage}\n\n📋 Validation Errors:${errorDetails}`;
+        }
+
+        setUploadError(errorMessage);
+        console.error('[YAML Parse] Error:', result);
       }
     } catch (error: any) {
       setUploadError(error.message || 'Network error');
