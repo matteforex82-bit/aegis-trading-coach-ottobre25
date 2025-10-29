@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,8 +10,7 @@ import {
   Clock,
   FileText,
   AlertTriangle,
-  Target,
-  Shield
+  Target
 } from "lucide-react"
 import { AssetCategory, SetupDirection } from "@prisma/client"
 
@@ -200,12 +198,14 @@ export function TradingSetupCard({ setup, isAdmin = false, onEdit, onDelete }: T
           </div>
           <div className="flex gap-2">
             {!isAdmin && (
-              <Button size="sm" asChild className={setup.direction === 'BUY' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}>
-                <Link href={`/dashboard/trade-entry?setup=${setup.id}`}>
-                  {setup.direction === 'BUY' ? <TrendingUp className="h-4 w-4 mr-1" /> : <TrendingDown className="h-4 w-4 mr-1" />}
-                  Trade This
-                </Link>
-              </Button>
+              <div className="flex flex-col gap-1">
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                  Educational Content Only
+                </Badge>
+                <p className="text-xs text-muted-foreground max-w-[200px]">
+                  Study this analysis. Create your own setups in Operations Center.
+                </p>
+              </div>
             )}
             {setup.pdfUrl && (
               <Button variant="outline" size="sm" asChild>

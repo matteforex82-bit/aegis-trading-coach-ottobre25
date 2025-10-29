@@ -30,7 +30,7 @@ const navigation = [
   { name: "Trades", href: "/dashboard/trades", icon: TrendingUp },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { name: "Discipline", href: "/dashboard/discipline", icon: Award, isNew: true },
-  { name: "Trading Room", href: "/dashboard/trading-room", icon: Target, isPremium: true },
+  { name: "Analysis Library", href: "/dashboard/trading-room", icon: BookOpen, isPremium: true },
   { name: "My Notes", href: "/dashboard/journal", icon: StickyNote },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ]
@@ -38,7 +38,7 @@ const navigation = [
 // Admin-only navigation items
 const adminNavigation = [
   { name: "Admin Panel", href: "/admin", icon: Users, isAdmin: true },
-  { name: "Manage Setups", href: "/dashboard/admin/trading-room", icon: Crown, isAdmin: true },
+  { name: "Publish Analyses", href: "/dashboard/admin/trading-room", icon: Crown, isAdmin: true },
 ]
 
 export function Sidebar() {

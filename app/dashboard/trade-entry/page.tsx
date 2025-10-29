@@ -9,19 +9,12 @@ export const metadata = {
   description: 'Enter and validate new trades with AEGIS Guardian',
 };
 
-interface PageProps {
-  searchParams: Promise<{ setup?: string }>;
-}
-
-export default async function TradeEntryPage({ searchParams }: PageProps) {
+export default async function TradeEntryPage() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
     redirect('/auth/signin');
   }
-
-  // Await searchParams (Next.js 15 requirement)
-  const params = await searchParams;
 
   // Fetch user's trading accounts
   const accounts = await prisma.tradingAccount.findMany({
@@ -37,30 +30,9 @@ export default async function TradeEntryPage({ searchParams }: PageProps) {
     },
   });
 
-  // Fetch trading setup if provided in query params
-  let prefilledSetup = null;
-  if (params.setup) {
-    const setup = await prisma.tradingSetup.findUnique({
-      where: {
-        id: params.setup,
-        isActive: true, // Only fetch active setups
-      },
-    });
-
-    if (setup) {
-      prefilledSetup = {
-        symbol: setup.symbol,
-        direction: setup.direction as 'BUY' | 'SELL',
-        entryPrice: setup.entryPrice,
-        stopLoss: setup.stopLoss,
-        takeProfit1: setup.takeProfit1 || undefined,
-        takeProfit2: setup.takeProfit2 || undefined,
-        takeProfit3: setup.takeProfit3 || undefined,
-        wavePattern: setup.wavePattern,
-        waveCount: setup.waveCount,
-      };
-    }
-  }
+  // Trade Entry is for user's OWN analysis only
+  // No pre-filling from Trading Room allowed for legal compliance
+  const prefilledSetup = null;
 
   if (accounts.length === 0) {
     return (

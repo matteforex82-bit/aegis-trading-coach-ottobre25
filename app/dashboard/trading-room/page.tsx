@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { TradingSetupCard } from "@/components/trading-room/TradingSetupCard"
-import { Loader2, Target, TrendingUp, Zap, Crown } from "lucide-react"
+import { Loader2, Target, TrendingUp, Zap, Crown, AlertTriangle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { AssetCategory } from "@prisma/client"
 
@@ -172,10 +173,10 @@ export default function TradingRoomPage() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Target className="h-8 w-8 text-primary" />
-            Trading Room
+            Educational Analysis Library
           </h1>
           <p className="text-muted-foreground mt-1">
-            Curated Elliott Wave trading setups across multiple asset classes
+            Educational Elliott Wave analyses across multiple asset classes
           </p>
         </div>
         <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
@@ -183,6 +184,18 @@ export default function TradingRoomPage() {
           Premium Feature
         </Badge>
       </div>
+
+      {/* Educational Disclaimer */}
+      <Alert className="border-yellow-500 bg-yellow-50">
+        <AlertTriangle className="h-4 w-4 text-yellow-600" />
+        <AlertTitle className="text-yellow-900">Educational Content Only - Not Financial Advice</AlertTitle>
+        <AlertDescription className="text-yellow-800">
+          The analyses displayed here are provided for <strong>educational purposes only</strong>. They do not
+          constitute financial advice, trading signals, or recommendations to buy or sell any financial instrument.
+          You must conduct your own independent analysis and make your own trading decisions. All trading
+          involves substantial risk of loss. Only risk capital you can afford to lose.
+        </AlertDescription>
+      </Alert>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
