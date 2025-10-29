@@ -31,6 +31,7 @@ import {
   Save,
   PlayCircle,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 
 interface TradeOrder {
@@ -81,6 +82,7 @@ export default function TradeOperationsPage() {
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -262,6 +264,45 @@ export default function TradeOperationsPage() {
       setError(err.message);
     } finally {
       setExecuting(false);
+    }
+  };
+
+  const deleteSelectedOrders = async () => {
+    if (selectedOrders.size === 0) {
+      setError('Please select at least one order to delete');
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const orderIds = Array.from(selectedOrders);
+
+      // Delete all selected orders
+      const deletePromises = orderIds.map(orderId =>
+        fetch(`/api/trade-orders/${orderId}`, {
+          method: 'DELETE',
+        })
+      );
+
+      const results = await Promise.all(deletePromises);
+
+      // Check if all deletions were successful
+      const failedCount = results.filter(r => !r.ok).length;
+
+      if (failedCount > 0) {
+        throw new Error(`Failed to delete ${failedCount} orders`);
+      }
+
+      setSuccess(`Successfully deleted ${orderIds.length} orders`);
+      setSelectedOrders(new Set());
+      await loadOrders();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -554,10 +595,29 @@ export default function TradeOperationsPage() {
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh
                   </Button>
+                  {pendingOrders.length > 0 && selectedOrders.size > 0 && (
+                    <Button
+                      variant="destructive"
+                      onClick={deleteSelectedOrders}
+                      disabled={deleting || executing}
+                    >
+                      {deleting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Selected ({selectedOrders.size})
+                        </>
+                      )}
+                    </Button>
+                  )}
                   {pendingOrders.length > 0 && (
                     <Button
                       onClick={executeSelectedOrders}
-                      disabled={selectedOrders.size === 0 || executing}
+                      disabled={selectedOrders.size === 0 || executing || deleting}
                     >
                       {executing ? (
                         <>
