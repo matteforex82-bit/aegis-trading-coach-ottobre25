@@ -17,6 +17,10 @@ interface RawYamlSetup {
   takeProfit2?: number | string
   takeProfit3?: number | string
   invalidation?: number | string
+  targetArea?: number | string
+  confidence?: number
+  analysis?: string
+  note?: string
   analysisDate?: string
   expiresAt?: string
   notes?: string
@@ -36,12 +40,15 @@ export interface ParsedTradingSetup {
   timeframe: string
   wavePattern?: string | null
   waveCount?: string | null
-  entryPrice: number
-  stopLoss: number
+  entryPrice?: number | null          // Optional for analysis-only setups
+  stopLoss?: number | null             // Optional for analysis-only setups
   takeProfit1?: number | null
   takeProfit2?: number | null
   takeProfit3?: number | null
   invalidation?: number | null
+  targetArea?: number | null           // Generic target (used in waiting_list)
+  confidence?: number | null           // Confidence level 0-100
+  analysis?: string | null             // Detailed Elliott Wave analysis
   analysisDate: Date
   expiresAt?: Date | null
   notes?: string | null
@@ -119,8 +126,8 @@ export function parseYamlFile(yamlContent: string): YamlParseResult {
     // Extract metadata (optional)
     const metadata = data.metadata || data.analysis_metadata || {}
 
-    // Extract setups array - support both 'setups' and 'assets' formats
-    const rawSetups = data.setups || data.assets
+    // Extract setups array - support 'setups', 'assets', and 'waiting_list' formats
+    const rawSetups = data.setups || data.assets || data.waiting_list
 
     if (!Array.isArray(rawSetups)) {
       return {
@@ -132,7 +139,7 @@ export function parseYamlFile(yamlContent: string): YamlParseResult {
             errors: [
               {
                 field: "setups",
-                message: "'setups' or 'assets' must be an array of trading setups.",
+                message: "'setups', 'assets', or 'waiting_list' must be an array of trading setups.",
               },
             ],
           },
@@ -176,15 +183,17 @@ export function parseYamlFile(yamlContent: string): YamlParseResult {
         const entryType = entry.type || ''
         const direction = entryType.toLowerCase().includes('buy') ? 'BUY' : 'SELL'
 
-        // Map asset_type to category
+        // Map asset_type to category (supports both English and Italian)
         const assetType = item.asset_type || item.category || 'FOREX'
         let category = 'FOREX'
         if (assetType.toLowerCase().includes('index') || assetType.toLowerCase().includes('indic')) {
           category = 'INDICES'
         } else if (assetType.toLowerCase().includes('commod') || assetType.toLowerCase().includes('gold') || assetType.toLowerCase().includes('oil')) {
           category = 'COMMODITIES'
-        } else if (assetType.toLowerCase().includes('btc') || assetType.toLowerCase().includes('bitcoin')) {
-          category = 'BITCOIN'
+        } else if (assetType.toLowerCase().includes('metal') || assetType.toLowerCase().includes('xau') || assetType.toLowerCase().includes('silver')) {
+          category = 'METALS'
+        } else if (assetType.toLowerCase().includes('crypto') || assetType.toLowerCase().includes('btc') || assetType.toLowerCase().includes('bitcoin')) {
+          category = 'CRYPTO'
         }
 
         return {
@@ -200,9 +209,12 @@ export function parseYamlFile(yamlContent: string): YamlParseResult {
           takeProfit2: item.trading_setup.take_profit_targets?.[1]?.price,
           takeProfit3: item.trading_setup.take_profit_targets?.[2]?.price,
           invalidation: item.trading_setup.invalidation?.price,
-          analysisDate: metadata.date || new Date().toISOString().split('T')[0],
+          targetArea: item.targetArea,
+          confidence: item.confidence,
+          analysis: item.analysis,
+          analysisDate: metadata.date || item.analysisDate || new Date().toISOString().split('T')[0],
           expiresAt: item.expiresAt,
-          notes: item.notes || item.trading_setup.notes || entry.rationale,
+          notes: item.notes || item.note || item.trading_setup.notes || entry.rationale,
           pdfUrl: metadata.pdfUrl || item.pdfUrl,
           isPremium: item.isPremium !== false,
           requiredPlan: item.requiredPlan,
@@ -262,7 +274,7 @@ function parseAndValidateSetup(
 ): SetupParseResult {
   const errors: ValidationError[] = []
 
-  // Validate required fields
+  // Validate required fields (always needed)
   if (!raw.category) {
     errors.push({ field: "category", message: "Required field missing" })
   }
@@ -275,14 +287,20 @@ function parseAndValidateSetup(
   if (!raw.timeframe) {
     errors.push({ field: "timeframe", message: "Required field missing" })
   }
-  if (raw.entryPrice === undefined || raw.entryPrice === null) {
-    errors.push({ field: "entryPrice", message: "Required field missing" })
-  }
-  if (raw.stopLoss === undefined || raw.stopLoss === null) {
-    errors.push({ field: "stopLoss", message: "Required field missing" })
-  }
   if (!raw.analysisDate) {
     errors.push({ field: "analysisDate", message: "Required field missing" })
+  }
+
+  // Validate setup type: Must have EITHER (entryPrice + stopLoss) OR targetArea
+  const hasExecutionPrices = (raw.entryPrice !== undefined && raw.entryPrice !== null) &&
+                             (raw.stopLoss !== undefined && raw.stopLoss !== null)
+  const hasTargetArea = raw.targetArea !== undefined && raw.targetArea !== null
+
+  if (!hasExecutionPrices && !hasTargetArea) {
+    errors.push({
+      field: "prices",
+      message: "Setup must have either (entryPrice + stopLoss) for executable trades OR targetArea for analysis-only setups"
+    })
   }
 
   // Return early if required fields missing
@@ -313,23 +331,29 @@ function parseAndValidateSetup(
   // Normalize symbol
   const symbol = raw.symbol!.trim().toUpperCase()
 
-  // Validate and parse prices
-  const entryPrice = parsePrice(raw.entryPrice!)
-  if (entryPrice === null || entryPrice <= 0) {
-    errors.push({
-      field: "entryPrice",
-      message: "Must be a positive number",
-      value: raw.entryPrice,
-    })
+  // Validate and parse prices (only if present)
+  let entryPrice: number | null = null
+  if (raw.entryPrice !== undefined && raw.entryPrice !== null) {
+    entryPrice = parsePrice(raw.entryPrice)
+    if (entryPrice === null || entryPrice <= 0) {
+      errors.push({
+        field: "entryPrice",
+        message: "Must be a positive number",
+        value: raw.entryPrice,
+      })
+    }
   }
 
-  const stopLoss = parsePrice(raw.stopLoss!)
-  if (stopLoss === null || stopLoss <= 0) {
-    errors.push({
-      field: "stopLoss",
-      message: "Must be a positive number",
-      value: raw.stopLoss,
-    })
+  let stopLoss: number | null = null
+  if (raw.stopLoss !== undefined && raw.stopLoss !== null) {
+    stopLoss = parsePrice(raw.stopLoss)
+    if (stopLoss === null || stopLoss <= 0) {
+      errors.push({
+        field: "stopLoss",
+        message: "Must be a positive number",
+        value: raw.stopLoss,
+      })
+    }
   }
 
   const takeProfit1 = raw.takeProfit1 ? parsePrice(raw.takeProfit1) : null
@@ -366,6 +390,29 @@ function parseAndValidateSetup(
       message: "Must be a positive number",
       value: raw.invalidation,
     })
+  }
+
+  // Validate targetArea (for analysis-only setups)
+  const targetArea = raw.targetArea ? parsePrice(raw.targetArea) : null
+  if (raw.targetArea && (targetArea === null || targetArea <= 0)) {
+    errors.push({
+      field: "targetArea",
+      message: "Must be a positive number",
+      value: raw.targetArea,
+    })
+  }
+
+  // Validate confidence (must be 0-100 if present)
+  let confidence: number | null = null
+  if (raw.confidence !== undefined && raw.confidence !== null) {
+    confidence = typeof raw.confidence === 'number' ? raw.confidence : parseInt(raw.confidence.toString())
+    if (isNaN(confidence) || confidence < 0 || confidence > 100) {
+      errors.push({
+        field: "confidence",
+        message: "Must be a number between 0 and 100",
+        value: raw.confidence,
+      })
+    }
   }
 
   // Validate and parse dates
@@ -433,15 +480,18 @@ function parseAndValidateSetup(
     timeframe: raw.timeframe!.trim(),
     wavePattern: raw.wavePattern?.trim() || null,
     waveCount: raw.waveCount?.trim() || null,
-    entryPrice: entryPrice!,
-    stopLoss: stopLoss!,
+    entryPrice: entryPrice,
+    stopLoss: stopLoss,
     takeProfit1,
     takeProfit2,
     takeProfit3,
     invalidation,
+    targetArea,
+    confidence,
+    analysis: raw.analysis?.trim() || null,
     analysisDate: analysisDate!,
     expiresAt,
-    notes: raw.notes?.trim() || null,
+    notes: raw.notes?.trim() || raw.note?.trim() || null,
     pdfUrl: raw.pdfUrl?.trim() || null,
     isPremium: raw.isPremium !== false, // default true
     requiredPlan,
