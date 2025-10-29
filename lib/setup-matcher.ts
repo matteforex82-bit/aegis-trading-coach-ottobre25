@@ -75,10 +75,10 @@ function findDuplicate(
 
     // If both have execution prices, compare those
     if (
-      existing.entryPrice !== null &&
-      parsedSetup.entryPrice !== null &&
-      existing.stopLoss !== null &&
-      parsedSetup.stopLoss !== null
+      existing.entryPrice != null &&
+      parsedSetup.entryPrice != null &&
+      existing.stopLoss != null &&
+      parsedSetup.stopLoss != null
     ) {
       return (
         Math.abs(existing.entryPrice - parsedSetup.entryPrice) < 0.00001 &&
@@ -88,8 +88,8 @@ function findDuplicate(
 
     // If both have targetArea (analysis-only), compare that
     if (
-      existing.targetArea !== null &&
-      parsedSetup.targetArea !== null
+      existing.targetArea != null &&
+      parsedSetup.targetArea != null
     ) {
       return Math.abs(existing.targetArea - parsedSetup.targetArea) < 0.00001
     }
