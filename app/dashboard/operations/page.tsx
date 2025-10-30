@@ -219,13 +219,22 @@ export default function TradeOperationsPage() {
       const result = await response.json();
 
       if (response.ok) {
-        setSuccess(`Created ${result.createdCount} trade orders`);
+        setSuccess(`✅ Created ${result.createdCount} trading setups successfully`);
         setParsedOrders([]);
         setSelectedFile(null);
         await loadOrders();
         setActiveTab('pending');
       } else {
-        setUploadError(result.error || 'Failed to create orders');
+        // Show detailed error message
+        let errorMsg = result.error || 'Failed to create orders';
+        if (result.message) {
+          errorMsg += `\n\nDetails: ${result.message}`;
+        }
+        if (result.details && process.env.NODE_ENV === 'development') {
+          errorMsg += `\n\n${result.details}`;
+        }
+        console.error('[Confirm Orders] Error:', result);
+        setUploadError(errorMsg);
       }
     } catch (error: any) {
       setUploadError(error.message || 'Network error');

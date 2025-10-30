@@ -13,6 +13,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { accountId, orders } = body;
 
+    console.log('[YAML Confirm] Received request:', {
+      accountId,
+      ordersCount: orders?.length,
+      firstOrder: orders?.[0]
+    });
+
     if (!accountId) {
       return NextResponse.json({ error: 'No account ID provided' }, { status: 400 });
     }
@@ -33,41 +39,79 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Account not found or unauthorized' }, { status: 404 });
     }
 
-    // Create trade orders in database
-    const createdOrders = await Promise.all(
-      orders.map((order: any) =>
-        prisma.tradeOrder.create({
+    // Create TradingSetup entries (Elliott Wave signals)
+    // These are signals/analysis, NOT immediate MT5 orders
+    const createdSetups = await Promise.all(
+      orders.map(async (order: any) => {
+        console.log('[YAML Confirm] Creating setup:', {
+          symbol: order.symbol,
+          category: order.category,
+          hasEntry: !!order.entryPrice,
+          hasStop: !!order.stopLoss,
+          hasTarget: !!order.targetArea
+        });
+
+        // Parse analysisDate - handle both string and Date
+        let analysisDate = new Date();
+        if (order.analysisDate) {
+          const parsed = new Date(order.analysisDate);
+          if (!isNaN(parsed.getTime())) {
+            analysisDate = parsed;
+          }
+        }
+
+        return prisma.tradingSetup.create({
           data: {
-            accountId: accountId,
+            // Required fields
+            category: order.category || 'FOREX',
             symbol: order.symbol,
             direction: order.direction,
-            orderType: order.orderType,
-            type: order.direction, // Legacy field
-            entryPrice: order.entryPrice,
-            stopLoss: order.stopLoss,
-            takeProfit1: order.takeProfit1,
-            takeProfit2: order.takeProfit2,
-            takeProfit3: order.takeProfit3,
-            riskAmount: order.riskAmount,
-            riskPercent: 1.0, // Default 1%
-            lotSize: order.lotSize,
-            status: 'PENDING',
+            timeframe: order.timeframe || 'Daily',
+            analysisDate: analysisDate,
+
+            // Elliott Wave fields
+            wavePattern: order.wavePattern || null,
+            waveCount: order.waveCount || null,
+
+            // Price levels (all optional for analysis-only setups)
+            entryPrice: order.entryPrice || null,
+            stopLoss: order.stopLoss || null,
+            takeProfit1: order.takeProfit1 || null,
+            takeProfit2: order.takeProfit2 || null,
+            takeProfit3: order.takeProfit3 || null,
+            invalidation: order.invalidation || null,
+            targetArea: order.targetArea || null,
+
+            // Analysis details
+            confidence: order.confidence || null,
+            analysis: order.analysis || null,
+            notes: order.notes || null,
+
+            // Premium control
+            isPremium: true,
+            requiredPlan: 'PRO',
+
+            // Active by default
+            isActive: true,
           },
-        })
-      )
+        });
+      })
     );
+
+    console.log('[YAML Confirm] Successfully created', createdSetups.length, 'setups');
 
     return NextResponse.json({
       success: true,
-      createdCount: createdOrders.length,
-      orders: createdOrders,
+      createdCount: createdSetups.length,
+      setups: createdSetups,
     });
   } catch (error: any) {
-    console.error('Order creation error:', error);
+    console.error('[YAML Confirm] Error creating setups:', error);
     return NextResponse.json(
       {
-        error: 'Failed to create orders',
+        error: 'Failed to create trading setups',
         message: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
       { status: 500 }
     );
