@@ -97,9 +97,17 @@ export default function TradeOperationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Trading Setups state
+  const [tradingSetups, setTradingSetups] = useState<any[]>([]);
+  const [selectedSetups, setSelectedSetups] = useState<Set<string>>(new Set());
+  const [loadingSetups, setLoadingSetups] = useState(false);
+  const [publishingSetups, setPublishingSetups] = useState(false);
+  const [executingSetup, setExecutingSetup] = useState(false);
+
   useEffect(() => {
     loadAccounts();
     loadOrders();
+    loadTradingSetups();
   }, []);
 
   const loadAccounts = async () => {
@@ -128,6 +136,147 @@ export default function TradeOperationsPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTradingSetups = async () => {
+    setLoadingSetups(true);
+    try {
+      const response = await fetch('/api/admin/trading-setups/list');
+      if (!response.ok) throw new Error('Failed to load trading setups');
+      const data = await response.json();
+      setTradingSetups(data.setups || []);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoadingSetups(false);
+    }
+  };
+
+  const toggleSetup = (setupId: string) => {
+    const newSelected = new Set(selectedSetups);
+    if (newSelected.has(setupId)) {
+      newSelected.delete(setupId);
+    } else {
+      newSelected.add(setupId);
+    }
+    setSelectedSetups(newSelected);
+  };
+
+  const toggleAllSetups = () => {
+    if (selectedSetups.size === tradingSetups.length) {
+      setSelectedSetups(new Set());
+    } else {
+      setSelectedSetups(new Set(tradingSetups.map(s => s.id)));
+    }
+  };
+
+  const publishSetups = async (isActive: boolean) => {
+    if (selectedSetups.size === 0) {
+      setError('Seleziona almeno un setup');
+      return;
+    }
+
+    setPublishingSetups(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch('/api/admin/trading-setups/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          setupIds: Array.from(selectedSetups),
+          isActive
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to publish setups');
+      }
+
+      setSuccess(result.message);
+      setSelectedSetups(new Set());
+      await loadTradingSetups();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setPublishingSetups(false);
+    }
+  };
+
+  const executeSetup = async (setupId: string) => {
+    if (!selectedAccount) {
+      setError('Seleziona un account MT5');
+      return;
+    }
+
+    setExecutingSetup(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch('/api/admin/trading-setups/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          setupId,
+          accountId: selectedAccount,
+          lotSize: 0.01,
+          riskAmount: 100
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to execute setup');
+      }
+
+      setSuccess(result.message);
+      await loadOrders();
+      setActiveTab('pending');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setExecutingSetup(false);
+    }
+  };
+
+  const deleteSetups = async () => {
+    if (selectedSetups.size === 0) {
+      setError('Seleziona almeno un setup da eliminare');
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch('/api/admin/trading-setups/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          setupIds: Array.from(selectedSetups)
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete setups');
+      }
+
+      setSuccess(result.message);
+      setSelectedSetups(new Set());
+      await loadTradingSetups();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -222,8 +371,8 @@ export default function TradeOperationsPage() {
         setSuccess(`✅ Created ${result.createdCount} trading setups successfully`);
         setParsedOrders([]);
         setSelectedFile(null);
-        await loadOrders();
-        setActiveTab('pending');
+        await loadTradingSetups();
+        setActiveTab('setups');
       } else {
         // Show detailed error message
         let errorMsg = result.error || 'Failed to create orders';
@@ -400,10 +549,14 @@ export default function TradeOperationsPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="upload">
             <Upload className="w-4 h-4 mr-2" />
             Upload YAML
+          </TabsTrigger>
+          <TabsTrigger value="setups">
+            <Target className="w-4 h-4 mr-2" />
+            Trading Setups
           </TabsTrigger>
           <TabsTrigger value="pending">
             <FileText className="w-4 h-4 mr-2" />
@@ -693,7 +846,223 @@ export default function TradeOperationsPage() {
           )}
         </TabsContent>
 
-        {/* Tab 2: Pending Orders */}
+        {/* Tab 2: Trading Setups */}
+        <TabsContent value="setups" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Trading Setups ({tradingSetups.length})</CardTitle>
+                  <CardDescription>
+                    Gestisci i setup Elliott Wave: pubblica in Trading Room o esegui su MT5
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={loadTradingSetups} disabled={loadingSetups}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                  </Button>
+                  {selectedSetups.size > 0 && (
+                    <>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => publishSetups(true)}
+                        disabled={publishingSetups}
+                      >
+                        {publishingSetups ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                        )}
+                        Pubblica ({selectedSetups.size})
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => publishSetups(false)}
+                        disabled={publishingSetups}
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Depubblica ({selectedSetups.size})
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={deleteSetups}
+                        disabled={deleting}
+                      >
+                        {deleting ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 mr-2" />
+                        )}
+                        Elimina ({selectedSetups.size})
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingSetups ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : tradingSetups.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nessun setup disponibile. Upload un file YAML per creare setup.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Checkbox
+                      checked={selectedSetups.size === tradingSetups.length && tradingSetups.length > 0}
+                      onCheckedChange={toggleAllSetups}
+                    />
+                    <Label className="text-sm">Seleziona tutti</Label>
+                  </div>
+
+                  {tradingSetups.map((setup) => {
+                    const isAnalysisOnly = !setup.entryPrice || !setup.stopLoss;
+
+                    return (
+                      <div
+                        key={setup.id}
+                        className={`border rounded-lg p-4 space-y-3 ${selectedSetups.has(setup.id) ? 'border-blue-500 bg-blue-50' : ''}`}
+                      >
+                        {/* Header Row */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={selectedSetups.has(setup.id)}
+                              onCheckedChange={() => toggleSetup(setup.id)}
+                            />
+                            <span className="font-bold text-lg">{setup.symbol}</span>
+                            {setup.direction === 'BUY' ? (
+                              <Badge className="bg-green-100 text-green-800">
+                                <TrendingUp className="w-3 h-3 mr-1" />
+                                BUY
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-red-100 text-red-800">
+                                <TrendingDown className="w-3 h-3 mr-1" />
+                                SELL
+                              </Badge>
+                            )}
+                            {isAnalysisOnly ? (
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                📊 ANALYSIS ONLY
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                ✅ EXECUTABLE
+                              </Badge>
+                            )}
+                            {setup.isActive ? (
+                              <Badge className="bg-green-500 text-white">
+                                ✓ Pubblicato
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">
+                                Bozza
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            {!isAnalysisOnly && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => executeSetup(setup.id)}
+                                disabled={executingSetup || !selectedAccount}
+                              >
+                                {executingSetup ? (
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                  <PlayCircle className="w-4 h-4 mr-2" />
+                                )}
+                                Esegui MT5
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Setup Details */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                          {setup.category && (
+                            <div>
+                              <span className="text-muted-foreground">Category:</span>
+                              <span className="ml-2 font-medium">{setup.category}</span>
+                            </div>
+                          )}
+                          {setup.timeframe && (
+                            <div>
+                              <span className="text-muted-foreground">Timeframe:</span>
+                              <span className="ml-2 font-medium">{setup.timeframe}</span>
+                            </div>
+                          )}
+                          {setup.wavePattern && (
+                            <div>
+                              <span className="text-muted-foreground">Pattern:</span>
+                              <span className="ml-2 font-medium">{setup.wavePattern}</span>
+                            </div>
+                          )}
+                          {setup.confidence && (
+                            <div>
+                              <span className="text-muted-foreground">Confidence:</span>
+                              <span className="ml-2 font-medium">{setup.confidence}%</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Price Levels */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm bg-gray-50 p-3 rounded">
+                          <div>
+                            <span className="text-muted-foreground">Entry:</span>
+                            <span className="ml-2 font-medium">{setup.entryPrice || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Stop Loss:</span>
+                            <span className="ml-2 font-medium">{setup.stopLoss || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Target Area:</span>
+                            <span className="ml-2 font-medium">{setup.targetArea || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Invalidation:</span>
+                            <span className="ml-2 font-medium">{setup.invalidation || 'N/A'}</span>
+                          </div>
+                        </div>
+
+                        {/* Notes */}
+                        {setup.notes && (
+                          <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                            <span className="text-xs font-semibold text-blue-900">Note: </span>
+                            <span className="text-xs text-blue-800">{setup.notes}</span>
+                          </div>
+                        )}
+
+                        {/* Analysis */}
+                        {setup.analysis && (
+                          <details className="text-sm">
+                            <summary className="cursor-pointer font-semibold text-blue-900">
+                              📋 Analisi dettagliata
+                            </summary>
+                            <div className="mt-2 text-gray-700 whitespace-pre-wrap">{setup.analysis}</div>
+                          </details>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 3: Pending Orders */}
         <TabsContent value="pending" className="space-y-4">
           <Card>
             <CardHeader>
