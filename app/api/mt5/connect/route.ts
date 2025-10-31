@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     // Check if account already exists
     const existingAccount = await prisma.tradingAccount.findUnique({
-      where: { accountLogin },
+      where: { login: accountLogin },
     });
 
     if (existingAccount) {
@@ -52,20 +52,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate API key
+    const apiKeyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+
     // Create new trading account
     const newAccount = await prisma.tradingAccount.create({
       data: {
         userId: adminUser.id,
-        accountLogin,
-        accountName: accountName || `${broker} - ${accountLogin}`,
+        login: accountLogin,
         broker,
         server,
         accountType: 'LIVE', // Default to LIVE, can be updated later
+        status: 'ACTIVE',
         currency: currency || 'USD',
-        balance: balance || 0,
-        isActive: true,
-        apiKey,
+        startBalance: balance || 0,
+        currentBalance: balance || 0,
+        profit: 0,
+        drawdown: 0,
         lastSyncAt: new Date(),
+        mt5ApiKeys: {
+          create: {
+            key: apiKeyHash,
+            name: `Auto-generated - ${new Date().toISOString()}`,
+          },
+        },
       },
     });
 
@@ -76,7 +86,7 @@ export async function POST(request: NextRequest) {
       message: 'Account registered successfully',
       data: {
         accountId: newAccount.id,
-        accountLogin: newAccount.accountLogin,
+        accountLogin: newAccount.login,
         apiKey: apiKey,
         broker: newAccount.broker,
         server: newAccount.server,
