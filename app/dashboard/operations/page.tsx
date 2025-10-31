@@ -32,6 +32,8 @@ import {
   PlayCircle,
   RefreshCw,
   Trash2,
+  Database,
+  Search,
 } from 'lucide-react';
 
 interface TradeOrder {
@@ -104,11 +106,26 @@ export default function TradeOperationsPage() {
   const [publishingSetups, setPublishingSetups] = useState(false);
   const [executingSetup, setExecutingSetup] = useState(false);
 
+  // Broker Symbols state
+  const [brokerSymbols, setBrokerSymbols] = useState<any[]>([]);
+  const [symbolMappings, setSymbolMappings] = useState<any[]>([]);
+  const [loadingSymbols, setLoadingSymbols] = useState(false);
+  const [symbolSearchTerm, setSymbolSearchTerm] = useState('');
+  const [showMappingDialog, setShowMappingDialog] = useState(false);
+  const [newMapping, setNewMapping] = useState({ standardSymbol: '', brokerSymbol: '' });
+
   useEffect(() => {
     loadAccounts();
     loadOrders();
     loadTradingSetups();
   }, []);
+
+  // Load broker symbols when account changes
+  useEffect(() => {
+    if (selectedAccount && activeTab === 'symbols') {
+      loadBrokerSymbols();
+    }
+  }, [selectedAccount, activeTab]);
 
   const loadAccounts = async () => {
     try {
@@ -150,6 +167,76 @@ export default function TradeOperationsPage() {
       setError(err.message);
     } finally {
       setLoadingSetups(false);
+    }
+  };
+
+  const loadBrokerSymbols = async () => {
+    if (!selectedAccount) return;
+
+    setLoadingSymbols(true);
+    try {
+      const response = await fetch(`/api/mt5/symbols/${selectedAccount}`);
+      if (!response.ok) throw new Error('Failed to load broker symbols');
+      const data = await response.json();
+      setBrokerSymbols(data.symbols || []);
+      setSymbolMappings(data.mappings || []);
+      setSuccess(`Loaded ${data.symbols?.length || 0} symbols and ${data.mappings?.length || 0} mappings`);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoadingSymbols(false);
+    }
+  };
+
+  const createSymbolMapping = async () => {
+    if (!selectedAccount || !newMapping.standardSymbol || !newMapping.brokerSymbol) {
+      setError('Please fill in both standard and broker symbol');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/symbols/mapping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: selectedAccount,
+          standardSymbol: newMapping.standardSymbol,
+          brokerSymbol: newMapping.brokerSymbol,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to create mapping');
+      }
+
+      setSuccess('Mapping created successfully');
+      setNewMapping({ standardSymbol: '', brokerSymbol: '' });
+      setShowMappingDialog(false);
+      await loadBrokerSymbols();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const deleteSymbolMapping = async (standardSymbol: string) => {
+    if (!selectedAccount) return;
+
+    try {
+      const response = await fetch(
+        `/api/admin/symbols/mapping?accountId=${selectedAccount}&standardSymbol=${standardSymbol}`,
+        { method: 'DELETE' }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to delete mapping');
+      }
+
+      setSuccess('Mapping deleted successfully');
+      await loadBrokerSymbols();
+    } catch (err: any) {
+      setError(err.message);
     }
   };
 
@@ -549,7 +636,7 @@ export default function TradeOperationsPage() {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="upload">
             <Upload className="w-4 h-4 mr-2" />
             Upload YAML
@@ -557,6 +644,10 @@ export default function TradeOperationsPage() {
           <TabsTrigger value="setups">
             <Target className="w-4 h-4 mr-2" />
             Trading Setups
+          </TabsTrigger>
+          <TabsTrigger value="symbols">
+            <Database className="w-4 h-4 mr-2" />
+            Broker Symbols
           </TabsTrigger>
           <TabsTrigger value="pending">
             <FileText className="w-4 h-4 mr-2" />
@@ -1065,7 +1156,244 @@ export default function TradeOperationsPage() {
           </Card>
         </TabsContent>
 
-        {/* Tab 3: Pending Orders */}
+        {/* Tab 3: Broker Symbols */}
+        <TabsContent value="symbols" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="w-5 h-5" />
+                    Broker Symbols
+                  </CardTitle>
+                  <CardDescription>
+                    Gestisci simboli disponibili sul broker e mappature standard → broker-specific
+                  </CardDescription>
+                </div>
+                <Button onClick={loadBrokerSymbols} disabled={!selectedAccount || loadingSymbols}>
+                  {loadingSymbols ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                  )}
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {!selectedAccount ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Seleziona un account per vedere i simboli broker
+                </div>
+              ) : loadingSymbols ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-2xl font-bold">{brokerSymbols.length}</div>
+                        <p className="text-xs text-muted-foreground">Total Symbols</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-2xl font-bold">{symbolMappings.length}</div>
+                        <p className="text-xs text-muted-foreground">Mappings</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-2xl font-bold">
+                          {brokerSymbols.filter((s) => s.tradeMode === 'FULL').length}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Tradeable</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Symbol Mappings */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Symbol Mappings</h3>
+                      <Button onClick={() => setShowMappingDialog(true)} size="sm">
+                        Create Mapping
+                      </Button>
+                    </div>
+
+                    {symbolMappings.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground text-sm">
+                        No mappings yet. Create one to map standard symbols to broker-specific symbols.
+                      </div>
+                    ) : (
+                      <div className="border rounded-lg">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Standard Symbol</TableHead>
+                              <TableHead>Broker Symbol</TableHead>
+                              <TableHead>Confidence</TableHead>
+                              <TableHead>Source</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {symbolMappings.map((mapping) => (
+                              <TableRow key={mapping.id}>
+                                <TableCell className="font-medium">{mapping.standardSymbol}</TableCell>
+                                <TableCell>{mapping.brokerSymbol}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={mapping.confidence >= 0.8 ? 'default' : mapping.confidence >= 0.5 ? 'outline' : 'secondary'}
+                                  >
+                                    {Math.round(mapping.confidence * 100)}%
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">{mapping.source}</Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteSymbolMapping(mapping.standardSymbol)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Broker Symbols */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Available Broker Symbols</h3>
+                      <div className="relative w-64">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search symbols..."
+                          value={symbolSearchTerm}
+                          onChange={(e) => setSymbolSearchTerm(e.target.value)}
+                          className="pl-8"
+                        />
+                      </div>
+                    </div>
+
+                    {brokerSymbols.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p className="mb-2">No symbols synced yet</p>
+                        <p className="text-sm">
+                          Connect your MT5 EA to automatically sync all available symbols
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="border rounded-lg max-h-96 overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Symbol</TableHead>
+                              <TableHead>Description</TableHead>
+                              <TableHead>Min Lot</TableHead>
+                              <TableHead>Max Lot</TableHead>
+                              <TableHead>Stop Level</TableHead>
+                              <TableHead>Trade Mode</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {brokerSymbols
+                              .filter((symbol) =>
+                                symbolSearchTerm
+                                  ? symbol.symbol.toLowerCase().includes(symbolSearchTerm.toLowerCase()) ||
+                                    symbol.description?.toLowerCase().includes(symbolSearchTerm.toLowerCase())
+                                  : true
+                              )
+                              .slice(0, 50) // Limit to 50 for performance
+                              .map((symbol) => (
+                                <TableRow key={symbol.id}>
+                                  <TableCell className="font-medium">{symbol.symbol}</TableCell>
+                                  <TableCell className="text-sm text-muted-foreground">
+                                    {symbol.description || '-'}
+                                  </TableCell>
+                                  <TableCell>{symbol.minLot}</TableCell>
+                                  <TableCell>{symbol.maxLot}</TableCell>
+                                  <TableCell>{symbol.stopLevel}</TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      variant={
+                                        symbol.tradeMode === 'FULL'
+                                          ? 'default'
+                                          : symbol.tradeMode === 'CLOSE_ONLY'
+                                          ? 'outline'
+                                          : 'secondary'
+                                      }
+                                    >
+                                      {symbol.tradeMode}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Create Mapping Dialog */}
+                  {showMappingDialog && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                      <Card className="w-full max-w-md">
+                        <CardHeader>
+                          <CardTitle>Create Symbol Mapping</CardTitle>
+                          <CardDescription>
+                            Map a standard symbol name to broker-specific symbol
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Standard Symbol (e.g., GOLD, WTI, EURUSD)</Label>
+                            <Input
+                              placeholder="GOLD"
+                              value={newMapping.standardSymbol}
+                              onChange={(e) =>
+                                setNewMapping({ ...newMapping, standardSymbol: e.target.value.toUpperCase() })
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Broker Symbol (must exist in broker symbols)</Label>
+                            <Input
+                              placeholder="XAUUSD"
+                              value={newMapping.brokerSymbol}
+                              onChange={(e) =>
+                                setNewMapping({ ...newMapping, brokerSymbol: e.target.value.toUpperCase() })
+                              }
+                            />
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Button variant="outline" onClick={() => setShowMappingDialog(false)}>
+                              Cancel
+                            </Button>
+                            <Button onClick={createSymbolMapping}>Create Mapping</Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 4: Pending Orders */}
         <TabsContent value="pending" className="space-y-4">
           <Card>
             <CardHeader>
