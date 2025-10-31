@@ -11,7 +11,7 @@ import { db as prisma } from '@/lib/db';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { accountId: string } }
+  { params }: { params: Promise<{ accountId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -20,7 +20,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { accountId } = params;
+    const { accountId } = await params;
 
     if (!accountId) {
       return NextResponse.json({ error: 'Account ID required' }, { status: 400 });
