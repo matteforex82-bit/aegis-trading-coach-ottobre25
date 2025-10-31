@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db as prisma } from '@/lib/db';
-import { verifyMT5ApiKey } from '@/lib/mt5-auth';
+import { verifyMT5ApiKey, getTradingAccountByLogin } from '@/lib/mt5-auth';
 
 /**
  * POST /api/mt5/symbols/sync
@@ -35,17 +35,32 @@ import { verifyMT5ApiKey } from '@/lib/mt5-auth';
 export async function POST(request: NextRequest) {
   try {
     // Authenticate EA
-    const authResult = await verifyMT5ApiKey(request);
-    if (!authResult || !authResult.authenticated || !authResult.tradingAccount) {
+    const userId = await verifyMT5ApiKey(request);
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Invalid or missing API key' },
         { status: 401 }
       );
     }
 
-    const account = authResult.tradingAccount;
     const body = await request.json();
-    const { symbols } = body;
+    const { accountLogin, symbols } = body;
+
+    if (!accountLogin) {
+      return NextResponse.json(
+        { error: 'Invalid request', message: 'accountLogin is required' },
+        { status: 400 }
+      );
+    }
+
+    // Get trading account
+    const account = await getTradingAccountByLogin(accountLogin, userId);
+    if (!account) {
+      return NextResponse.json(
+        { error: 'Account not found', message: 'Trading account not found or unauthorized' },
+        { status: 404 }
+      );
+    }
 
     if (!symbols || !Array.isArray(symbols)) {
       return NextResponse.json(
