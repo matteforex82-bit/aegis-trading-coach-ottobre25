@@ -5,8 +5,11 @@
  * - Risk % desiderato
  * - Balance del conto
  * - Distanza dello Stop Loss
- * - Valore del pip per il symbol
+ * - Valore del pip per il symbol (da broker specs se disponibile)
  */
+
+import { db as prisma } from '@/lib/db';
+import { getSymbolSpec } from '@/lib/symbol-mapper';
 
 export interface RiskCalculationInput {
   accountBalance: number;
@@ -15,6 +18,7 @@ export interface RiskCalculationInput {
   stopLoss: number;
   symbol: string;
   accountCurrency?: string;
+  accountId?: string; // Optional: per usare broker specs invece di valori hardcoded
 }
 
 export interface RiskCalculationResult {
@@ -80,6 +84,42 @@ function calculatePipDistance(
 function getPipValue(symbol: string): number {
   const cleanSymbol = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
   return FOREX_PIP_VALUES[cleanSymbol]?.pipValue || 10; // Default to $10/pip
+}
+
+/**
+ * Ottiene pip value e digits dalle specifiche broker se disponibili
+ * Fallback a valori hardcoded se specifiche non trovate
+ */
+async function getPipValueFromBrokerSpec(
+  symbol: string,
+  accountId?: string
+): Promise<{ pipValue: number; pipDigits: number }> {
+  // Se accountId fornito, prova a recuperare specifiche broker
+  if (accountId) {
+    try {
+      const spec = await getSymbolSpec(symbol, accountId);
+      if (spec) {
+        // Calcola pip value dinamicamente dalle specifiche
+        // Per la maggior parte degli strumenti: pip = point * 10
+        // Pip value per lotto standard dipende da contractSize
+        const pipValue = spec.point * 10 * spec.contractSize / 100000;
+        return {
+          pipValue: pipValue > 0 ? pipValue : getPipValue(symbol),
+          pipDigits: spec.digits,
+        };
+      }
+    } catch (error) {
+      console.warn(`[Risk Calculator] Failed to get broker spec for ${symbol}:`, error);
+    }
+  }
+
+  // Fallback a valori hardcoded
+  const cleanSymbol = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const defaultSpec = FOREX_PIP_VALUES[cleanSymbol];
+  return {
+    pipValue: defaultSpec?.pipValue || 10,
+    pipDigits: defaultSpec?.pipDigits || 5,
+  };
 }
 
 /**
@@ -242,4 +282,89 @@ export function suggestTakeProfit(
   } else {
     return entryPrice - reward;
   }
+}
+
+/**
+ * Versione async di calculateLotSize che usa specifiche broker se disponibili
+ * Usa automaticamente le specifiche reali del broker invece di valori hardcoded
+ */
+export async function calculateLotSizeWithBrokerSpec(
+  input: RiskCalculationInput
+): Promise<RiskCalculationResult> {
+  const errors: string[] = [];
+
+  // Validazione input
+  if (input.accountBalance <= 0) {
+    errors.push("Account balance must be positive");
+  }
+
+  if (input.riskPercent <= 0 || input.riskPercent > 10) {
+    errors.push("Risk percent must be between 0.1% and 10%");
+  }
+
+  if (input.entryPrice <= 0 || input.stopLoss <= 0) {
+    errors.push("Entry price and stop loss must be positive");
+  }
+
+  if (input.entryPrice === input.stopLoss) {
+    errors.push("Entry price and stop loss cannot be the same");
+  }
+
+  if (errors.length > 0) {
+    return {
+      lotSize: 0,
+      riskAmount: 0,
+      pipDistance: 0,
+      pipValue: 0,
+      positionValue: 0,
+      isValid: false,
+      errors,
+    };
+  }
+
+  // Calcolo del risk amount in valuta
+  const riskAmount = (input.accountBalance * input.riskPercent) / 100;
+
+  // Ottieni pip value e digits dalle broker specs
+  const { pipValue, pipDigits } = await getPipValueFromBrokerSpec(
+    input.symbol,
+    input.accountId
+  );
+
+  // Calcolo distanza in punti usando digits reali del broker
+  const pipMultiplier = Math.pow(10, pipDigits);
+  const priceDifference = Math.abs(input.entryPrice - input.stopLoss);
+  const pipDistance = priceDifference * pipMultiplier;
+
+  if (pipDistance === 0) {
+    errors.push("Invalid pip distance (too small)");
+    return {
+      lotSize: 0,
+      riskAmount,
+      pipDistance: 0,
+      pipValue: 0,
+      positionValue: 0,
+      isValid: false,
+      errors,
+    };
+  }
+
+  // Formula: Lot Size = Risk Amount / (Pip Distance × Pip Value)
+  const lotSize = riskAmount / (pipDistance * pipValue);
+
+  // Arrotonda a 2 decimali (standard per MT5)
+  const roundedLotSize = Math.round(lotSize * 100) / 100;
+
+  // Calcolo del valore totale della posizione
+  const positionValue = roundedLotSize * 100000; // Standard lot size
+
+  return {
+    lotSize: roundedLotSize,
+    riskAmount,
+    pipDistance,
+    pipValue,
+    positionValue,
+    isValid: true,
+    errors: [],
+  };
 }

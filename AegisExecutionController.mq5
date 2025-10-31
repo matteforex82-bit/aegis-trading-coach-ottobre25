@@ -101,6 +101,9 @@ int OnInit() {
     // Perform initial polling
     PollPendingOrders();
 
+    // Send symbol specifications to server (only once at startup)
+    SendSymbolSpecifications();
+
     Print("✅ Initialization complete. EA is now active.");
 
     return(INIT_SUCCEEDED);
@@ -641,6 +644,126 @@ void SendPostRequest(string endpoint, string jsonData) {
 
     if(res != 200 && ENABLE_LOGGING) {
         Print("⚠️  POST request failed to ", endpoint, " with code: ", res);
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Send Symbol Specifications to Server                             |
+//| Called once at EA startup to sync all available symbols          |
+//+------------------------------------------------------------------+
+void SendSymbolSpecifications() {
+    Print("📊 Syncing symbol specifications to server...");
+
+    string accountLogin = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
+    int totalSymbols = SymbolsTotal(true);
+
+    if(totalSymbols == 0) {
+        Print("⚠️  No symbols available in Market Watch");
+        return;
+    }
+
+    Print("📈 Found ", totalSymbols, " symbols in Market Watch");
+
+    // Build JSON array of symbol specifications
+    string symbolsJson = "[";
+    int validSymbols = 0;
+
+    for(int i = 0; i < totalSymbols; i++) {
+        string symbol = SymbolName(i, true);
+
+        // Ensure symbol is selected
+        if(!SymbolSelect(symbol, true)) {
+            continue;
+        }
+
+        // Get symbol specifications
+        int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+        double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+        double contractSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_CONTRACT_SIZE);
+        double minLot = SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN);
+        double maxLot = SymbolInfoDouble(symbol, SYMBOL_VOLUME_MAX);
+        double lotStep = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP);
+        int stopLevel = (int)SymbolInfoInteger(symbol, SYMBOL_TRADE_STOPS_LEVEL);
+        int freezeLevel = (int)SymbolInfoInteger(symbol, SYMBOL_TRADE_FREEZE_LEVEL);
+        int spread = (int)SymbolInfoInteger(symbol, SYMBOL_SPREAD);
+        int tradeMode = (int)SymbolInfoInteger(symbol, SYMBOL_TRADE_MODE);
+        string description = SymbolInfoString(symbol, SYMBOL_DESCRIPTION);
+
+        // Determine trade mode string
+        string tradeModeStr = "DISABLED";
+        if(tradeMode == SYMBOL_TRADE_MODE_FULL) tradeModeStr = "FULL";
+        else if(tradeMode == SYMBOL_TRADE_MODE_CLOSEONLY) tradeModeStr = "CLOSE_ONLY";
+
+        // Escape description for JSON
+        StringReplace(description, "\"", "\\\"");
+        StringReplace(description, "\\", "\\\\");
+
+        // Build JSON object for this symbol
+        if(validSymbols > 0) symbolsJson += ",";
+
+        symbolsJson += "{";
+        symbolsJson += "\"symbol\":\"" + symbol + "\",";
+        symbolsJson += "\"description\":\"" + description + "\",";
+        symbolsJson += "\"digits\":" + IntegerToString(digits) + ",";
+        symbolsJson += "\"point\":" + DoubleToString(point, digits+2) + ",";
+        symbolsJson += "\"contractSize\":" + DoubleToString(contractSize, 2) + ",";
+        symbolsJson += "\"minLot\":" + DoubleToString(minLot, 2) + ",";
+        symbolsJson += "\"maxLot\":" + DoubleToString(maxLot, 2) + ",";
+        symbolsJson += "\"lotStep\":" + DoubleToString(lotStep, 2) + ",";
+        symbolsJson += "\"stopLevel\":" + IntegerToString(stopLevel) + ",";
+        symbolsJson += "\"freezeLevel\":" + IntegerToString(freezeLevel) + ",";
+        symbolsJson += "\"tradeMode\":\"" + tradeModeStr + "\",";
+        symbolsJson += "\"spread\":" + IntegerToString(spread);
+        symbolsJson += "}";
+
+        validSymbols++;
+    }
+
+    symbolsJson += "]";
+
+    if(validSymbols == 0) {
+        Print("❌ No valid symbols to sync");
+        return;
+    }
+
+    // Build request body
+    string jsonData = "{";
+    jsonData += "\"accountLogin\":\"" + accountLogin + "\",";
+    jsonData += "\"symbols\":" + symbolsJson;
+    jsonData += "}";
+
+    // Send to server
+    string url = API_URL + "/api/mt5/symbols/sync";
+    string headers = "Content-Type: application/json\r\n";
+    headers += "X-API-Key: " + API_KEY + "\r\n";
+
+    char post[], result[];
+    string responseHeaders;
+    StringToCharArray(jsonData, post, 0, StringLen(jsonData));
+
+    int timeout = 30000; // 30 seconds timeout for symbol sync
+    int res = WebRequest(
+        "POST",
+        url,
+        headers,
+        timeout,
+        post,
+        result,
+        responseHeaders
+    );
+
+    if(res == 200) {
+        string response = CharArrayToString(result);
+        Print("✅ Symbol sync successful! Synced ", validSymbols, " symbols");
+        if(ENABLE_LOGGING) {
+            Print("📋 Server response: ", response);
+        }
+    } else {
+        Print("❌ Symbol sync failed with code: ", res);
+        if(ENABLE_LOGGING && ArraySize(result) > 0) {
+            string errorResponse = CharArrayToString(result);
+            Print("❌ Error response: ", errorResponse);
+        }
     }
 }
 //+------------------------------------------------------------------+
