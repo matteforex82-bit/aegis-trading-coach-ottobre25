@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db as prisma } from '@/lib/db';
+import { validateOrderForExecution } from '@/lib/symbol-mapper';
 
 /**
  * POST /api/admin/trading-setups/execute
  * Crea TradeOrder da TradingSetup per esecuzione su MT5
+ * Con validazione simboli broker e normalizzazione lot size
  */
 export async function POST(request: NextRequest) {
   try {
@@ -66,6 +68,51 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[Admin] Creating TradeOrder from setup:', setupId);
+    console.log(`[Admin] Standard symbol: ${setup.symbol}, Account: ${account.login}`);
+
+    // ============================================================================
+    // SYMBOL VALIDATION & MAPPING
+    // ============================================================================
+
+    const validation = await validateOrderForExecution(
+      setup.symbol,
+      accountId,
+      lotSize || 0.01,
+      setup.entryPrice,
+      setup.stopLoss,
+      setup.direction as 'BUY' | 'SELL'
+    );
+
+    // Check validation result
+    if (!validation.valid) {
+      console.error('[Admin] Validation failed:', validation.errors);
+      return NextResponse.json({
+        error: 'Order validation failed',
+        message: validation.errors.join('. '),
+        details: {
+          errors: validation.errors,
+          warnings: validation.warnings,
+        },
+        hint: validation.errors.some(e => e.includes('not found'))
+          ? 'Symbol not found on broker. Please check Operations > Broker Symbols to manage symbol mappings.'
+          : undefined,
+      }, { status: 400 });
+    }
+
+    const brokerSymbol = validation.brokerSymbol!;
+    const normalizedLotSize = validation.normalizedLotSize || lotSize || 0.01;
+
+    // Log warnings if any
+    if (validation.warnings.length > 0) {
+      console.warn('[Admin] Validation warnings:', validation.warnings);
+    }
+
+    console.log(`[Admin] Mapped symbol: ${setup.symbol} → ${brokerSymbol}`);
+    console.log(`[Admin] Lot size: ${lotSize || 0.01} → ${normalizedLotSize}`);
+
+    // ============================================================================
+    // ORDER TYPE DETERMINATION
+    // ============================================================================
 
     // Determine order type based on entryPrice presence
     // If no entryPrice -> MARKET order (immediate execution)
@@ -77,15 +124,19 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Admin] Order type: ${orderType} (${isMarketOrder ? 'MARKET' : 'LIMIT'})`);
 
-    // Create TradeOrder
+    // ============================================================================
+    // CREATE TRADE ORDER
+    // ============================================================================
+
+    // Create TradeOrder with broker symbol (not standard symbol)
     const order = await prisma.tradeOrder.create({
       data: {
         accountId: accountId,
-        symbol: setup.symbol,
+        symbol: brokerSymbol, // ✅ Use broker-specific symbol
         direction: setup.direction,
         orderType: orderType,
         type: setup.direction, // Legacy field
-        lotSize: lotSize || 0.01,
+        lotSize: normalizedLotSize, // ✅ Use normalized lot size
         entryPrice: setup.entryPrice || null, // Null for MARKET orders
         stopLoss: setup.stopLoss,
         takeProfit1: setup.takeProfit1,
@@ -94,7 +145,7 @@ export async function POST(request: NextRequest) {
         riskPercent: 1.0,
         riskAmount: riskAmount || 100,
         invalidationPrice: setup.invalidation,
-        comment: `Elliott Wave: ${setup.wavePattern || 'Setup'} (${orderType})`,
+        comment: `Elliott Wave: ${setup.wavePattern || 'Setup'} (${orderType}) [${setup.symbol}→${brokerSymbol}]`,
         magicNumber: 999001,
         status: 'APPROVED' // Ready for MT5 EA execution
       }
@@ -102,10 +153,24 @@ export async function POST(request: NextRequest) {
 
     console.log('[Admin] Created TradeOrder:', order.id);
 
+    // Build response message
+    let message = `Order created for ${brokerSymbol} - Ready for MT5 execution`;
+    if (validation.warnings.length > 0) {
+      message += `\n\nWarnings:\n${validation.warnings.map(w => `- ${w}`).join('\n')}`;
+    }
+
     return NextResponse.json({
       success: true,
       order,
-      message: `Order created for ${setup.symbol} - Ready for MT5 execution`
+      message: message,
+      details: {
+        standardSymbol: setup.symbol,
+        brokerSymbol: brokerSymbol,
+        originalLotSize: lotSize || 0.01,
+        normalizedLotSize: normalizedLotSize,
+        orderType: orderType,
+        warnings: validation.warnings,
+      },
     });
 
   } catch (error: any) {

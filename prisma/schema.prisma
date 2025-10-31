@@ -213,6 +213,8 @@ model TradingAccount {
   disciplineReports   DisciplineReport[]
   pnlSnapshots        PnLSnapshot[]
   alerts              Alert[]
+  brokerSymbolSpecs   BrokerSymbolSpec[]
+  symbolMappings      SymbolMapping[]
 
   @@index([userId])
   @@index([login])
@@ -817,4 +819,85 @@ model Alert {
   @@index([accountId, createdAt])
   @@index([isRead])
   @@map("alerts")
+}
+
+// ============================================================================
+// BROKER SYMBOL SPECIFICATIONS
+// ============================================================================
+
+model BrokerSymbolSpec {
+  id              String         @id @default(cuid())
+  accountId       String
+  account         TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Symbol Identity
+  symbol          String         // Broker-specific symbol name (e.g., "XTIUSD", "EURUSDm")
+  description     String?        // Human-readable description (e.g., "Crude Oil")
+
+  // Price Specifications
+  digits          Int            // Decimal places for price (e.g., 2 for oil, 5 for EURUSD)
+  point           Float          // Minimum price movement (e.g., 0.01 for oil)
+  tickSize        Float?         // Tick size if different from point
+  tickValue       Float?         // Value of one tick
+
+  // Contract Specifications
+  contractSize    Float          // Contract size (e.g., 1000 for oil, 100000 for forex)
+
+  // Lot Size Constraints
+  minLot          Float          // Minimum lot size (e.g., 0.01)
+  maxLot          Float          // Maximum lot size (e.g., 100.0)
+  lotStep         Float          // Lot size step (e.g., 0.01)
+
+  // Trading Constraints
+  stopLevel       Int            // Minimum stop level in points (e.g., 50)
+  freezeLevel     Int            // Freeze level in points
+  tradeMode       String         // FULL, CLOSE_ONLY, DISABLED
+
+  // Market Information
+  spread          Int?           // Current spread in points
+  spreadFloat     Float?         // Floating spread if applicable
+
+  // Margin & Leverage
+  leverage        Int?           // Leverage for this symbol
+  marginInitial   Float?         // Initial margin requirement
+  marginMaintenance Float?       // Maintenance margin requirement
+  marginRequired  Float?         // Margin required for 1 lot
+
+  // Symbol Category
+  category        String?        // FOREX, INDICES, COMMODITIES, CRYPTO, etc.
+
+  // Sync Information
+  lastUpdated     DateTime       @default(now())
+  createdAt       DateTime       @default(now())
+
+  @@unique([accountId, symbol])
+  @@index([accountId])
+  @@index([symbol])
+  @@map("broker_symbol_specs")
+}
+
+model SymbolMapping {
+  id              String         @id @default(cuid())
+  accountId       String
+  account         TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Mapping
+  standardSymbol  String         // Standard symbol name (e.g., "GOLD", "WTI", "EURUSD")
+  brokerSymbol    String         // Broker-specific symbol (e.g., "XAUUSD", "XTIUSD", "EURUSDm")
+
+  // Metadata
+  category        String?        // FOREX, INDICES, COMMODITIES, CRYPTO
+  confidence      Float          @default(1.0) // 1.0 = manual, 0.5-0.99 = auto-detected
+  source          String         @default("manual") // manual, auto, seed
+
+  // Tracking
+  createdBy       String?        // User ID who created the mapping
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([standardSymbol, accountId])
+  @@index([accountId])
+  @@index([standardSymbol])
+  @@index([brokerSymbol])
+  @@map("symbol_mappings")
 }
