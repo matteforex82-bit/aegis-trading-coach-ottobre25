@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   try {
     // Authenticate EA
     const authResult = await verifyMT5ApiKey(request);
-    if (!authResult.authenticated || !authResult.tradingAccount) {
+    if (!authResult || !authResult.authenticated || !authResult.tradingAccount) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Invalid or missing API key' },
         { status: 401 }
