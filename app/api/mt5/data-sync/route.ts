@@ -179,52 +179,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Process metrics
+    // Process metrics - create a new metrics record (historical snapshot)
     if (metrics) {
       try {
-        await prisma.accountMetrics.upsert({
-          where: { accountId: account.id },
-          create: {
+        await prisma.accountMetrics.create({
+          data: {
             accountId: account.id,
+            balance: accountInfo?.balance || 0,
+            equity: accountInfo?.equity || 0,
+            margin: 0,
+            freeMargin: 0,
+            marginLevel: 0,
+            profit: accountInfo ? accountInfo.equity - accountInfo.balance : 0,
+            drawdown: metrics.maxDrawdown ? parseFloat(metrics.maxDrawdown) : 0,
             totalTrades: metrics.totalTrades || 0,
-            winRate: metrics.winRate ? parseFloat(metrics.winRate) : 0,
-            profitFactor: metrics.profitFactor ? parseFloat(metrics.profitFactor) : 0,
-            averageWin: metrics.averageWin ? parseFloat(metrics.averageWin) : 0,
-            averageLoss: metrics.averageLoss ? parseFloat(metrics.averageLoss) : 0,
-            largestWin: metrics.largestWin ? parseFloat(metrics.largestWin) : 0,
-            largestLoss: metrics.largestLoss ? parseFloat(metrics.largestLoss) : 0,
+            winningTrades: 0,
+            losingTrades: 0,
+            winRate: metrics.winRate ? parseFloat(metrics.winRate) : null,
+            profitFactor: metrics.profitFactor ? parseFloat(metrics.profitFactor) : null,
+            averageWin: metrics.averageWin ? parseFloat(metrics.averageWin) : null,
+            averageLoss: metrics.averageLoss ? parseFloat(metrics.averageLoss) : null,
+            largestWin: metrics.largestWin ? parseFloat(metrics.largestWin) : null,
+            largestLoss: metrics.largestLoss ? parseFloat(metrics.largestLoss) : null,
             consecutiveWins: metrics.consecutiveWins || 0,
             consecutiveLosses: metrics.consecutiveLosses || 0,
-            maxDrawdown: metrics.maxDrawdown ? parseFloat(metrics.maxDrawdown) : 0,
-            maxDrawdownPercent: metrics.maxDrawdownPercent
-              ? parseFloat(metrics.maxDrawdownPercent)
-              : 0,
-            sharpeRatio: metrics.sharpeRatio ? parseFloat(metrics.sharpeRatio) : null,
-            sortinoRatio: metrics.sortinoRatio ? parseFloat(metrics.sortinoRatio) : null,
-            calmarRatio: metrics.calmarRatio ? parseFloat(metrics.calmarRatio) : null,
-            recoveryFactor: metrics.recoveryFactor ? parseFloat(metrics.recoveryFactor) : null,
-          },
-          update: {
-            totalTrades: metrics.totalTrades || undefined,
-            winRate: metrics.winRate ? parseFloat(metrics.winRate) : undefined,
-            profitFactor: metrics.profitFactor ? parseFloat(metrics.profitFactor) : undefined,
-            averageWin: metrics.averageWin ? parseFloat(metrics.averageWin) : undefined,
-            averageLoss: metrics.averageLoss ? parseFloat(metrics.averageLoss) : undefined,
-            largestWin: metrics.largestWin ? parseFloat(metrics.largestWin) : undefined,
-            largestLoss: metrics.largestLoss ? parseFloat(metrics.largestLoss) : undefined,
-            consecutiveWins: metrics.consecutiveWins || undefined,
-            consecutiveLosses: metrics.consecutiveLosses || undefined,
-            maxDrawdown: metrics.maxDrawdown ? parseFloat(metrics.maxDrawdown) : undefined,
-            maxDrawdownPercent: metrics.maxDrawdownPercent
-              ? parseFloat(metrics.maxDrawdownPercent)
-              : undefined,
-            sharpeRatio: metrics.sharpeRatio ? parseFloat(metrics.sharpeRatio) : undefined,
-            sortinoRatio: metrics.sortinoRatio ? parseFloat(metrics.sortinoRatio) : undefined,
-            calmarRatio: metrics.calmarRatio ? parseFloat(metrics.calmarRatio) : undefined,
-            recoveryFactor: metrics.recoveryFactor
-              ? parseFloat(metrics.recoveryFactor)
-              : undefined,
-            updatedAt: new Date(),
           },
         });
         updatedMetrics = true;
