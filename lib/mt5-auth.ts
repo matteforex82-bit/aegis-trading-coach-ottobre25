@@ -44,6 +44,52 @@ export async function verifyMT5ApiKey(request: NextRequest): Promise<string | nu
 }
 
 /**
+ * Verify MT5 API Key directly from tradingAccount.mt5ApiKey field
+ * Used for auto-generated API keys from /api/mt5/connect
+ * Returns the account if valid, null if invalid
+ */
+export async function verifyMT5ApiKeyDirect(request: NextRequest) {
+  const apiKey = request.headers.get("X-API-Key")
+
+  if (!apiKey) {
+    return null
+  }
+
+  try {
+    // Find trading account with matching mt5ApiKey
+    const account = await db.tradingAccount.findFirst({
+      where: {
+        mt5ApiKey: apiKey,
+        deletedAt: null,
+        status: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        userId: true,
+        login: true,
+        broker: true,
+        server: true,
+      },
+    })
+
+    if (!account) {
+      return null
+    }
+
+    // Update last sync time
+    await db.tradingAccount.update({
+      where: { id: account.id },
+      data: { lastSyncAt: new Date() },
+    })
+
+    return account
+  } catch (error) {
+    console.error("MT5 API key (direct) verification error:", error)
+    return null
+  }
+}
+
+/**
  * Get trading account by login for authenticated user
  */
 export async function getTradingAccountByLogin(
