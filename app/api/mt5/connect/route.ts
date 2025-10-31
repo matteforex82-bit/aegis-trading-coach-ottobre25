@@ -52,10 +52,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate API key
-    const apiKeyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
-
-    // Create new trading account
+    // Create new trading account with API key
     const newAccount = await prisma.tradingAccount.create({
       data: {
         userId: adminUser.id,
@@ -70,12 +67,7 @@ export async function POST(request: NextRequest) {
         profit: 0,
         drawdown: 0,
         lastSyncAt: new Date(),
-        mt5ApiKeys: {
-          create: {
-            key: apiKeyHash,
-            name: `Auto-generated - ${new Date().toISOString()}`,
-          },
-        },
+        mt5ApiKey: apiKey, // Store API key in plain text for now
       },
     });
 
