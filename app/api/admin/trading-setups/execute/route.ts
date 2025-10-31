@@ -45,11 +45,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Setup not found' }, { status: 404 });
     }
 
-    // Verify setup has execution prices
-    if (!setup.entryPrice || !setup.stopLoss) {
+    // Verify setup has at least stopLoss (entryPrice optional for MARKET orders)
+    if (!setup.stopLoss) {
       return NextResponse.json({
-        error: 'Setup must have entryPrice and stopLoss for execution',
-        message: 'This is an analysis-only setup. Please add entry and stop loss prices first.'
+        error: 'Setup must have stopLoss for execution',
+        message: 'This is an analysis-only setup. Please add stop loss price first.'
       }, { status: 400 });
     }
 
@@ -67,16 +67,26 @@ export async function POST(request: NextRequest) {
 
     console.log('[Admin] Creating TradeOrder from setup:', setupId);
 
+    // Determine order type based on entryPrice presence
+    // If no entryPrice -> MARKET order (immediate execution)
+    // If entryPrice specified -> LIMIT order (pending at specified price)
+    const isMarketOrder = !setup.entryPrice;
+    const orderType = isMarketOrder
+      ? (setup.direction === 'BUY' ? 'BUY' : 'SELL')
+      : (setup.direction === 'BUY' ? 'BUY_LIMIT' : 'SELL_LIMIT');
+
+    console.log(`[Admin] Order type: ${orderType} (${isMarketOrder ? 'MARKET' : 'LIMIT'})`);
+
     // Create TradeOrder
     const order = await prisma.tradeOrder.create({
       data: {
         accountId: accountId,
         symbol: setup.symbol,
         direction: setup.direction,
-        orderType: setup.direction === 'BUY' ? 'BUY_LIMIT' : 'SELL_LIMIT',
+        orderType: orderType,
         type: setup.direction, // Legacy field
         lotSize: lotSize || 0.01,
-        entryPrice: setup.entryPrice,
+        entryPrice: setup.entryPrice || null, // Null for MARKET orders
         stopLoss: setup.stopLoss,
         takeProfit1: setup.takeProfit1,
         takeProfit2: setup.takeProfit2,
@@ -84,7 +94,7 @@ export async function POST(request: NextRequest) {
         riskPercent: 1.0,
         riskAmount: riskAmount || 100,
         invalidationPrice: setup.invalidation,
-        comment: `Elliott Wave: ${setup.wavePattern || 'Setup'}`,
+        comment: `Elliott Wave: ${setup.wavePattern || 'Setup'} (${orderType})`,
         magicNumber: 999001,
         status: 'APPROVED' // Ready for MT5 EA execution
       }

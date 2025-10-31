@@ -924,7 +924,8 @@ export default function TradeOperationsPage() {
                   </div>
 
                   {tradingSetups.map((setup) => {
-                    const isAnalysisOnly = !setup.entryPrice || !setup.stopLoss;
+                    // Setup is executable if it has at least stopLoss (entryPrice is optional for MARKET orders)
+                    const isAnalysisOnly = !setup.stopLoss;
 
                     return (
                       <div
@@ -1020,7 +1021,9 @@ export default function TradeOperationsPage() {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm bg-gray-50 p-3 rounded">
                           <div>
                             <span className="text-muted-foreground">Entry:</span>
-                            <span className="ml-2 font-medium">{setup.entryPrice || 'N/A'}</span>
+                            <span className="ml-2 font-medium">
+                              {setup.entryPrice || (setup.stopLoss ? '🔴 MARKET' : 'N/A')}
+                            </span>
                           </div>
                           <div>
                             <span className="text-muted-foreground">Stop Loss:</span>
