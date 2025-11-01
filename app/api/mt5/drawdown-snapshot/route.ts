@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db as prisma } from '@/lib/db';
-import { verifyMT5ApiKey, getTradingAccountByLogin } from '@/lib/mt5-auth';
+import { verifyMT5ApiKeyDirect } from '@/lib/mt5-auth';
 
 /**
  * POST /api/mt5/drawdown-snapshot
@@ -19,13 +19,13 @@ import { verifyMT5ApiKey, getTradingAccountByLogin } from '@/lib/mt5-auth';
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Authenticate via API Key
-    const userId = await verifyMT5ApiKey(request);
+    // 1. Authenticate via API Key using direct authentication
+    const account = await verifyMT5ApiKeyDirect(request);
 
-    if (!userId) {
+    if (!account) {
       return NextResponse.json(
         { error: 'Invalid or missing API key' },
-        { status: 403 }
+        { status: 401 }
       );
     }
 
@@ -33,10 +33,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       accountLogin,
+      balance,
+      equity,
       dailyDrawdown,
       floatingPnL,
       closedPnL,
-      overRollDrawdown,
+      totalDrawdown,
     } = body;
 
     if (!accountLogin) {
@@ -46,24 +48,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Get trading account for authenticated user
-    const account = await getTradingAccountByLogin(userId, accountLogin);
-
-    if (!account) {
+    // 3. Verify the account login matches the authenticated account
+    if (account.login !== accountLogin) {
       return NextResponse.json(
-        { error: 'Unauthorized: Invalid API key or account not found' },
+        { error: 'Account login does not match API key' },
         { status: 403 }
       );
     }
 
-    // 4. Create drawdown snapshot
-    const snapshot = await prisma.drawdownSnapshot.create({
+    // 4. Create metrics snapshot
+    const snapshot = await prisma.accountMetrics.create({
       data: {
         accountId: account.id,
-        dailyDrawdownTotal: dailyDrawdown || 0,
-        overRollDrawdownTotal: overRollDrawdown || dailyDrawdown || 0,
-        closedPnL: closedPnL || 0,
-        floatingPnL: floatingPnL || 0,
+        balance: balance || 0,
+        equity: equity || 0,
+        profit: floatingPnL || 0,
+        drawdown: Math.abs(totalDrawdown || 0),
+        dailyDrawdown: dailyDrawdown || 0,
+        margin: 0,
+        freeMargin: 0,
+        marginLevel: 0,
+        totalTrades: 0,
+        winningTrades: 0,
+        losingTrades: 0,
+        consecutiveWins: 0,
+        consecutiveLosses: 0,
       },
     });
 
@@ -77,47 +86,34 @@ export async function POST(request: NextRequest) {
 
     if (challengeSetup) {
       const setup = challengeSetup;
+      const maxDailyLossPercent = setup.maxDailyLossPercent || 5.0;
+      const maxTotalLossPercent = setup.maxTotalLossPercent || 10.0;
 
-      // Check daily limit
-      const dailyLimitPercent = Math.abs(dailyDrawdown / setup.dailyBudgetDollars) * 100;
-      if (dailyLimitPercent >= 90) {
-        warnings.push(`CRITICAL: Daily drawdown at ${dailyLimitPercent.toFixed(1)}% of limit`);
+      // Calculate drawdown percentages
+      const totalDrawdownPercent = totalDrawdown ? (Math.abs(totalDrawdown) / balance) * 100 : 0;
+      const dailyDrawdownPercent = dailyDrawdown ? (Math.abs(dailyDrawdown) / balance) * 100 : 0;
+
+      // Check daily limit (negative drawdown means loss)
+      if (dailyDrawdownPercent > maxDailyLossPercent * 0.9) {
+        warnings.push(`CRITICAL: Daily loss at ${dailyDrawdownPercent.toFixed(1)}% (limit: ${maxDailyLossPercent}%)`);
         shouldBlockOrders = true;
-      } else if (dailyLimitPercent >= 70) {
-        warnings.push(`WARNING: Daily drawdown at ${dailyLimitPercent.toFixed(1)}% of limit`);
+      } else if (dailyDrawdownPercent > maxDailyLossPercent * 0.8) {
+        warnings.push(`WARNING: Daily loss at ${dailyDrawdownPercent.toFixed(1)}% (limit: ${maxDailyLossPercent}%)`);
       }
 
-      // Check over-roll limit
-      const overRollDD = overRollDrawdown || dailyDrawdown;
-      const overRollBudget = (setup.accountSize * setup.overRollMaxPercent) / 100;
-      const overRollLimitPercent = Math.abs(overRollDD / overRollBudget) * 100;
-
-      if (overRollLimitPercent >= 85) {
-        warnings.push(`CRITICAL: Total drawdown at ${overRollLimitPercent.toFixed(1)}% of limit`);
+      // Check total drawdown limit
+      if (totalDrawdownPercent >= maxTotalLossPercent) {
+        warnings.push(`CRITICAL: Total drawdown at ${totalDrawdownPercent.toFixed(1)}% (limit: ${maxTotalLossPercent}%)`);
         shouldBlockOrders = true;
-      } else if (overRollLimitPercent >= 60) {
-        warnings.push(`WARNING: Total drawdown at ${overRollLimitPercent.toFixed(1)}% of limit`);
+      } else if (totalDrawdownPercent >= maxTotalLossPercent * 0.8) {
+        warnings.push(`WARNING: Total drawdown at ${totalDrawdownPercent.toFixed(1)}% (limit: ${maxTotalLossPercent}%)`);
       }
 
       // Log critical warnings
       if (shouldBlockOrders) {
-        await prisma.violationLog.create({
-          data: {
-            accountId: account.id,
-            violationType: 'DRAWDOWN_LIMIT_CRITICAL',
-            description: warnings.join('. '),
-            actionTaken: 'BLOCK_NEW_ORDERS',
-            severity: 'CRITICAL',
-            metadata: {
-              dailyDrawdown,
-              overRollDrawdown: overRollDD,
-              dailyLimit: setup.dailyBudgetDollars,
-              overRollLimit: overRollBudget,
-            },
-          },
-        });
-
         console.log(`🚨 CRITICAL: Drawdown limits near for account ${accountLogin}`);
+        console.log(`   Daily: ${dailyDrawdownPercent.toFixed(2)}% / ${maxDailyLossPercent}%`);
+        console.log(`   Total: ${totalDrawdownPercent.toFixed(2)}% / ${maxTotalLossPercent}%`);
       }
     }
 
@@ -128,15 +124,16 @@ export async function POST(request: NextRequest) {
       message: 'Drawdown snapshot recorded',
       snapshot: {
         id: snapshot.id,
-        timestamp: snapshot.timestamp,
+        timestamp: snapshot.recordedAt,
       },
       warnings,
       blockOrders: shouldBlockOrders,
       limits: challengeSetup
         ? {
-            dailyBudget: challengeSetup.dailyBudgetDollars,
-            dailyUsed: Math.abs(dailyDrawdown),
-            dailyRemaining: challengeSetup.dailyBudgetDollars - Math.abs(dailyDrawdown),
+            maxDailyLossPercent: challengeSetup.maxDailyLossPercent || 5.0,
+            maxTotalLossPercent: challengeSetup.maxTotalLossPercent || 10.0,
+            dailyLoss: Math.abs(dailyDrawdown || 0),
+            totalDrawdown: Math.abs(totalDrawdown || 0),
           }
         : null,
     });

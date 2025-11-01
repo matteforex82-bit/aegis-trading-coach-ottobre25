@@ -768,7 +768,40 @@ void CheckAndExecutePendingOrders() {
             Print("✅ Server response received: ", StringLen(jsonResponse), " bytes");
         }
 
-        // TODO: Parse JSON and execute orders
+        // Parse JSON and check for orders
+        if(StringFind(jsonResponse, "\"ordersCount\":0") >= 0) {
+            if(ENABLE_LOGGING) {
+                Print("   No pending orders to execute");
+            }
+            return;
+        }
+
+        // Extract orders count
+        int ordersCountPos = StringFind(jsonResponse, "\"ordersCount\":");
+        if(ordersCountPos < 0) return;
+
+        int ordersCount = 0;
+        string ordersCountStr = "";
+        int numStart = ordersCountPos + 15; // Skip "ordersCount":
+        for(int i = numStart; i < StringLen(jsonResponse); i++) {
+            string char = StringSubstr(jsonResponse, i, 1);
+            if(char >= "0" && char <= "9") {
+                ordersCountStr += char;
+            } else {
+                break;
+            }
+        }
+        ordersCount = (int)StringToInteger(ordersCountStr);
+
+        if(ordersCount > 0) {
+            Print("📋 Found ", ordersCount, " pending order(s) to execute");
+
+            // Find orders array
+            int ordersArrayStart = StringFind(jsonResponse, "\"orders\":[");
+            if(ordersArrayStart >= 0) {
+                ProcessPendingOrders(jsonResponse, ordersArrayStart);
+            }
+        }
 
     } else {
         if(ENABLE_LOGGING) {
@@ -778,6 +811,305 @@ void CheckAndExecutePendingOrders() {
                 Print("Make sure WebRequest is enabled for: ", API_URL);
             }
         }
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Process pending orders from JSON response                        |
+//+------------------------------------------------------------------+
+void ProcessPendingOrders(string jsonResponse, int startPos) {
+    // Simple JSON parsing - extract each order object
+    int currentPos = startPos + 10; // Skip "orders":[
+
+    while(currentPos < StringLen(jsonResponse)) {
+        // Find next order object
+        int objStart = StringFind(jsonResponse, "{", currentPos);
+        if(objStart < 0) break;
+
+        int objEnd = StringFind(jsonResponse, "}", objStart);
+        if(objEnd < 0) break;
+
+        string orderJson = StringSubstr(jsonResponse, objStart, objEnd - objStart + 1);
+
+        // Parse order fields
+        string orderId = ExtractJsonString(orderJson, "orderId");
+        string symbol = ExtractJsonString(orderJson, "symbol");
+        string direction = ExtractJsonString(orderJson, "direction");
+        string orderType = ExtractJsonString(orderJson, "orderType");
+        double entryPrice = ExtractJsonDouble(orderJson, "entryPrice");
+        double stopLoss = ExtractJsonDouble(orderJson, "stopLoss");
+        double takeProfit = ExtractJsonDouble(orderJson, "takeProfit");
+        double lotSize = ExtractJsonDouble(orderJson, "lotSize");
+        double invalidationPrice = ExtractJsonDouble(orderJson, "invalidationPrice");
+
+        if(orderId != "" && symbol != "") {
+            Print("\n═══════════════════════════════════════════════════");
+            Print("📋 Processing Order: ", orderId);
+            Print("═══════════════════════════════════════════════════");
+            Print("Symbol: ", symbol);
+            Print("Direction: ", direction);
+            Print("Type: ", orderType);
+            Print("Entry: ", entryPrice);
+            Print("Stop Loss: ", stopLoss);
+            Print("Take Profit: ", takeProfit);
+            Print("Lot Size (from dashboard): ", lotSize);
+
+            // Execute order with position sizing
+            ExecuteOrder(orderId, symbol, direction, orderType, entryPrice, stopLoss, takeProfit, lotSize, invalidationPrice);
+        }
+
+        currentPos = objEnd + 1;
+
+        // Check if we've reached the end of the array
+        if(StringFind(jsonResponse, "]", currentPos) < StringFind(jsonResponse, "{", currentPos) ||
+           StringFind(jsonResponse, "{", currentPos) < 0) {
+            break;
+        }
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Execute a single order with position sizing                      |
+//+------------------------------------------------------------------+
+void ExecuteOrder(string orderId, string symbol, string direction, string orderType,
+                  double entryPrice, double stopLoss, double takeProfit, double dashboardLotSize,
+                  double invalidationPrice) {
+
+    // 1. Calculate optimal position size (if lotSize from dashboard is 0, calculate based on risk)
+    double calculatedVolume = 0;
+    double actualRisk = 0;
+    double actualRiskPercent = 0;
+
+    if(dashboardLotSize > 0) {
+        // Dashboard specified exact lot size - use it
+        calculatedVolume = dashboardLotSize;
+        Print("✅ Using lot size from dashboard: ", calculatedVolume);
+    } else {
+        // Calculate based on risk percentage (assume 1% default if not specified)
+        double riskPercent = 1.0;
+        calculatedVolume = CalculatePositionSize(symbol, direction, stopLoss, riskPercent, entryPrice);
+
+        if(calculatedVolume <= 0) {
+            Print("❌ Position size calculation failed - skipping order");
+            SendExecutionFeedback(orderId, "FAILED", 0, 0, 0, 0, 0, 0, 0, "Position size calculation failed");
+            return;
+        }
+    }
+
+    // 2. Calculate swap costs for preview
+    double swapCost5Day = CalculateSwapCost(symbol, direction, calculatedVolume, 5);
+    double swapCost10Day = CalculateSwapCost(symbol, direction, calculatedVolume, 10);
+
+    Print("───────────────────────────────────────────────────");
+    Print("💰 Calculated Position Details:");
+    Print("   Volume: ", DoubleToString(calculatedVolume, 2), " lots");
+    Print("   5-Day Swap Cost: $", DoubleToString(swapCost5Day, 2));
+    Print("   10-Day Swap Cost: $", DoubleToString(swapCost10Day, 2));
+    Print("───────────────────────────────────────────────────");
+
+    // 3. Execute order on MT5
+    MqlTradeRequest request;
+    MqlTradeResult result;
+    ZeroMemory(request);
+    ZeroMemory(result);
+
+    // Determine order action and type
+    if(orderType == "MARKET" || orderType == "BUY" || orderType == "SELL") {
+        // Market order
+        request.action = TRADE_ACTION_DEAL;
+        request.type = (direction == "BUY") ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+        request.price = (direction == "BUY") ? SymbolInfoDouble(symbol, SYMBOL_ASK) : SymbolInfoDouble(symbol, SYMBOL_BID);
+    } else if(orderType == "BUY_LIMIT" || orderType == "SELL_LIMIT") {
+        // Limit order
+        request.action = TRADE_ACTION_PENDING;
+        request.type = (orderType == "BUY_LIMIT") ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
+        request.price = entryPrice;
+    } else if(orderType == "BUY_STOP" || orderType == "SELL_STOP") {
+        // Stop order
+        request.action = TRADE_ACTION_PENDING;
+        request.type = (orderType == "BUY_STOP") ? ORDER_TYPE_BUY_STOP : ORDER_TYPE_SELL_STOP;
+        request.price = entryPrice;
+    } else {
+        Print("❌ Unknown order type: ", orderType);
+        SendExecutionFeedback(orderId, "FAILED", 0, 0, 0, 0, 0, 0, 0, "Unknown order type");
+        return;
+    }
+
+    request.symbol = symbol;
+    request.volume = calculatedVolume;
+    request.sl = stopLoss;
+    request.tp = takeProfit;
+    request.deviation = 20;
+    request.magic = 123456; // AEGIS magic number
+    request.comment = "AEGIS:" + orderId;
+    request.type_filling = ORDER_FILLING_FOK;
+
+    Print("───────────────────────────────────────────────────");
+    Print("⚡ Sending order to MT5...");
+    Print("───────────────────────────────────────────────────");
+
+    // Send order
+    bool success = OrderSend(request, result);
+
+    if(success && (result.retcode == TRADE_RETCODE_DONE || result.retcode == TRADE_RETCODE_PLACED)) {
+        Print("✅ ORDER EXECUTED SUCCESSFULLY!");
+        Print("   MT5 Ticket: #", result.order);
+        Print("   Volume: ", result.volume, " lots");
+        Print("   Price: ", result.price);
+        Print("═══════════════════════════════════════════════════\n");
+
+        totalExecutions++;
+
+        // Calculate actual risk
+        double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+        double tickSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
+        double tickValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);
+        double stopLossDistance = MathAbs(result.price - stopLoss);
+        double stopLossTicks = stopLossDistance / tickSize;
+        actualRisk = result.volume * stopLossTicks * tickValue;
+        actualRiskPercent = (actualRisk / balance) * 100.0;
+
+        // Send feedback to server
+        SendExecutionFeedback(
+            orderId,
+            "EXECUTED",
+            result.order,
+            result.volume,
+            actualRisk,
+            actualRiskPercent,
+            swapCost5Day,
+            swapCost10Day,
+            result.price,
+            ""
+        );
+    } else {
+        Print("❌ ORDER EXECUTION FAILED!");
+        Print("   Error code: ", result.retcode);
+        Print("   Error description: ", GetRetcodeDescription(result.retcode));
+        Print("═══════════════════════════════════════════════════\n");
+
+        failedExecutions++;
+
+        SendExecutionFeedback(
+            orderId,
+            "FAILED",
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            GetRetcodeDescription(result.retcode)
+        );
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Send execution feedback to server                                |
+//+------------------------------------------------------------------+
+void SendExecutionFeedback(string orderId, string status, ulong mt5Ticket, double volume,
+                          double actualRisk, double actualRiskPercent,
+                          double swapCost5Day, double swapCost10Day,
+                          double executionPrice, string failureReason) {
+
+    string jsonData = "{";
+    jsonData += "\"orderId\":\"" + orderId + "\",";
+    jsonData += "\"status\":\"" + status + "\",";
+    jsonData += "\"mt5Ticket\":\"" + IntegerToString(mt5Ticket) + "\",";
+    jsonData += "\"calculatedVolume\":" + DoubleToString(volume, 2) + ",";
+    jsonData += "\"actualRisk\":" + DoubleToString(actualRisk, 2) + ",";
+    jsonData += "\"actualRiskPercent\":" + DoubleToString(actualRiskPercent, 2) + ",";
+    jsonData += "\"swapCost5Day\":" + DoubleToString(swapCost5Day, 2) + ",";
+    jsonData += "\"swapCost10Day\":" + DoubleToString(swapCost10Day, 2) + ",";
+    jsonData += "\"executionPrice\":" + DoubleToString(executionPrice, 5) + ",";
+    jsonData += "\"executedAt\":\"" + TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS) + "\",";
+    jsonData += "\"failureReason\":\"" + failureReason + "\"";
+    jsonData += "}";
+
+    // Send to server
+    char send_data[];
+    char result_data[];
+    string result_headers;
+    int timeout = 5000;
+
+    StringToCharArray(jsonData, send_data, 0, StringLen(jsonData));
+
+    string request_headers = "Content-Type: application/json\r\n";
+    request_headers += "X-API-Key: " + API_KEY + "\r\n";
+
+    string url = API_URL + "/api/mt5/execution-feedback";
+    int res = WebRequest("POST", url, request_headers, timeout, send_data, result_data, result_headers);
+
+    if(res == 200) {
+        Print("✅ Execution feedback sent to server");
+    } else {
+        Print("⚠️  Failed to send execution feedback (HTTP ", res, ")");
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Helper: Extract string value from JSON                          |
+//+------------------------------------------------------------------+
+string ExtractJsonString(string json, string key) {
+    string searchKey = "\"" + key + "\":\"";
+    int startPos = StringFind(json, searchKey);
+    if(startPos < 0) return "";
+
+    startPos += StringLen(searchKey);
+    int endPos = StringFind(json, "\"", startPos);
+    if(endPos < 0) return "";
+
+    return StringSubstr(json, startPos, endPos - startPos);
+}
+
+//+------------------------------------------------------------------+
+//| Helper: Extract double value from JSON                          |
+//+------------------------------------------------------------------+
+double ExtractJsonDouble(string json, string key) {
+    string searchKey = "\"" + key + "\":";
+    int startPos = StringFind(json, searchKey);
+    if(startPos < 0) return 0;
+
+    startPos += StringLen(searchKey);
+    string numStr = "";
+
+    for(int i = startPos; i < StringLen(json); i++) {
+        string char = StringSubstr(json, i, 1);
+        if((char >= "0" && char <= "9") || char == "." || char == "-") {
+            numStr += char;
+        } else {
+            break;
+        }
+    }
+
+    return StringToDouble(numStr);
+}
+
+//+------------------------------------------------------------------+
+//| Helper: Get retcode description                                 |
+//+------------------------------------------------------------------+
+string GetRetcodeDescription(int retcode) {
+    switch(retcode) {
+        case TRADE_RETCODE_DONE: return "Request completed";
+        case TRADE_RETCODE_PLACED: return "Order placed";
+        case TRADE_RETCODE_REJECT: return "Request rejected";
+        case TRADE_RETCODE_CANCEL: return "Request canceled";
+        case TRADE_RETCODE_ERROR: return "Request processing error";
+        case TRADE_RETCODE_TIMEOUT: return "Request timeout";
+        case TRADE_RETCODE_INVALID: return "Invalid request";
+        case TRADE_RETCODE_INVALID_VOLUME: return "Invalid volume";
+        case TRADE_RETCODE_INVALID_PRICE: return "Invalid price";
+        case TRADE_RETCODE_INVALID_STOPS: return "Invalid stops";
+        case TRADE_RETCODE_TRADE_DISABLED: return "Trading disabled";
+        case TRADE_RETCODE_MARKET_CLOSED: return "Market closed";
+        case TRADE_RETCODE_NO_MONEY: return "Insufficient funds";
+        case TRADE_RETCODE_PRICE_CHANGED: return "Price changed";
+        case TRADE_RETCODE_PRICE_OFF: return "No prices";
+        case TRADE_RETCODE_INVALID_EXPIRATION: return "Invalid expiration";
+        case TRADE_RETCODE_ORDER_CHANGED: return "Order changed";
+        case TRADE_RETCODE_TOO_MANY_REQUESTS: return "Too many requests";
+        default: return "Unknown error (" + IntegerToString(retcode) + ")";
     }
 }
 
@@ -792,27 +1124,32 @@ void MonitorInvalidation() {
         if(PositionSelectByTicket(ticket)) {
             string symbol = PositionGetString(POSITION_SYMBOL);
             ENUM_POSITION_TYPE posType = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
+            string comment = PositionGetString(POSITION_COMMENT);
 
-            // TODO: Get invalidation price for this order from server/comment
-            double invalidationPrice = 0;
+            // Extract orderId from comment (format: "AEGIS:orderId")
+            if(StringFind(comment, "AEGIS:") < 0) continue;
 
-            if(invalidationPrice == 0) continue;
+            // Parse invalidation price from comment or use a separate mechanism
+            // For now, we'll check positions that have AEGIS in the comment
+            // The invalidation price should be stored in the position comment or fetched from server
+
+            // Extract orderId
+            int colonPos = StringFind(comment, ":");
+            if(colonPos < 0) continue;
+
+            string orderId = StringSubstr(comment, colonPos + 1);
 
             // Get current price
             double currentPrice;
             if(posType == POSITION_TYPE_BUY) {
                 currentPrice = SymbolInfoDouble(symbol, SYMBOL_BID);
-
-                if(currentPrice <= invalidationPrice) {
-                    TriggerInvalidation(ticket, currentPrice, invalidationPrice);
-                }
             } else {
                 currentPrice = SymbolInfoDouble(symbol, SYMBOL_ASK);
-
-                if(currentPrice >= invalidationPrice) {
-                    TriggerInvalidation(ticket, currentPrice, invalidationPrice);
-                }
             }
+
+            // Check invalidation (we need to fetch this from server or store it differently)
+            // For now, we monitor all AEGIS positions
+            // Future enhancement: Store invalidation price in position magic number or fetch from server
         }
     }
 }
@@ -867,16 +1204,79 @@ void MonitorDrawdown() {
     double closedPnL = CalculateTodayClosedPnL();
     double dailyDrawdown = closedPnL + floatingPnL;
 
+    // Calculate drawdown percentage
+    double startBalance = (ACCOUNT_START_BALANCE > 0) ? ACCOUNT_START_BALANCE : balance;
+    double totalDrawdown = startBalance - equity;
+    double totalDrawdownPercent = (totalDrawdown / startBalance) * 100.0;
+    double dailyDrawdownPercent = (dailyDrawdown / balance) * 100.0;
+
     if(ENABLE_LOGGING) {
         Print("📊 Drawdown Check:");
-        Print("   Balance: $", balance);
+        Print("   Start Balance: $", startBalance);
+        Print("   Current Balance: $", balance);
         Print("   Equity: $", equity);
         Print("   Floating P&L: $", floatingPnL);
         Print("   Closed P&L (today): $", closedPnL);
-        Print("   Daily Drawdown: $", dailyDrawdown);
+        Print("   Daily Drawdown: $", dailyDrawdown, " (", DoubleToString(dailyDrawdownPercent, 2), "%)");
+        Print("   Total Drawdown: $", totalDrawdown, " (", DoubleToString(totalDrawdownPercent, 2), "%)");
     }
 
-    // TODO: Send snapshot to server
+    // Send snapshot to server
+    SendDrawdownSnapshot(balance, equity, floatingPnL, closedPnL, dailyDrawdown, totalDrawdown);
+
+    // Check for warning thresholds (these should come from ChallengeSetup)
+    // For now, we just log warnings
+    if(totalDrawdownPercent > 8.0) {
+        Print("⚠️  WARNING: Total drawdown approaching limit (", DoubleToString(totalDrawdownPercent, 2), "%)");
+    }
+
+    if(dailyDrawdownPercent < -4.0) {
+        Print("⚠️  WARNING: Daily loss approaching limit (", DoubleToString(dailyDrawdownPercent, 2), "%)");
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Send drawdown snapshot to server                                |
+//+------------------------------------------------------------------+
+void SendDrawdownSnapshot(double balance, double equity, double floatingPnL,
+                         double closedPnL, double dailyDrawdown, double totalDrawdown) {
+
+    string accountLogin = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
+
+    string jsonData = "{";
+    jsonData += "\"accountLogin\":\"" + accountLogin + "\",";
+    jsonData += "\"balance\":" + DoubleToString(balance, 2) + ",";
+    jsonData += "\"equity\":" + DoubleToString(equity, 2) + ",";
+    jsonData += "\"floatingPnL\":" + DoubleToString(floatingPnL, 2) + ",";
+    jsonData += "\"closedPnL\":" + DoubleToString(closedPnL, 2) + ",";
+    jsonData += "\"dailyDrawdown\":" + DoubleToString(dailyDrawdown, 2) + ",";
+    jsonData += "\"totalDrawdown\":" + DoubleToString(totalDrawdown, 2) + ",";
+    jsonData += "\"timestamp\":\"" + TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS) + "\"";
+    jsonData += "}";
+
+    // Send to server
+    char send_data[];
+    char result_data[];
+    string result_headers;
+    int timeout = 5000;
+
+    StringToCharArray(jsonData, send_data, 0, StringLen(jsonData));
+
+    string request_headers = "Content-Type: application/json\r\n";
+    request_headers += "X-API-Key: " + API_KEY + "\r\n";
+
+    string url = API_URL + "/api/mt5/drawdown-snapshot";
+    int res = WebRequest("POST", url, request_headers, timeout, send_data, result_data, result_headers);
+
+    if(res == 200) {
+        if(ENABLE_LOGGING) {
+            Print("✅ Drawdown snapshot sent to server");
+        }
+    } else {
+        if(ENABLE_LOGGING) {
+            Print("⚠️  Failed to send drawdown snapshot (HTTP ", res, ")");
+        }
+    }
 }
 
 //+------------------------------------------------------------------+
