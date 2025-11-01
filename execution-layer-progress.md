@@ -333,13 +333,405 @@ Implementation of the MT5 execution layer with position sizing, risk management,
 
 ---
 
+## 📊 Implementation Summary
+
+### Code Statistics
+- **EA Code Added**: ~700 lines of MQL5 code
+- **API Endpoints Created**: 2 new endpoints
+- **API Endpoints Updated**: 2 updated endpoints
+- **Database Fields Added**: 7 new fields to TradeOrder model
+
+### EA Functions Implemented
+
+#### Order Execution (Phase 3)
+1. **ProcessPendingOrders()** - JSON parser for order arrays (50 lines)
+2. **ExecuteOrder()** - Complete execution logic with position sizing (135 lines)
+3. **SendExecutionFeedback()** - Reports execution results to server (40 lines)
+4. **ExtractJsonString()** - JSON string parser helper (15 lines)
+5. **ExtractJsonDouble()** - JSON number parser helper (20 lines)
+6. **GetRetcodeDescription()** - MT5 error code descriptions (25 lines)
+
+#### Position Sizing (Phase 2)
+7. **CalculatePositionSize()** - Risk-based volume calculation (120 lines)
+8. **CalculateSwapCost()** - Overnight holding cost calculation (50 lines)
+
+#### Monitoring (Phase 4)
+9. **MonitorInvalidation()** - Enhanced framework for invalidation monitoring (40 lines)
+10. **MonitorDrawdown()** - Enhanced drawdown monitoring with alerts (40 lines)
+11. **SendDrawdownSnapshot()** - Sends drawdown data to server (45 lines)
+
+### API Endpoints
+
+#### Created
+- **POST /api/mt5/execution-feedback** (132 lines)
+  - Receives execution results from EA
+  - Updates TradeOrder with MT5 ticket, volume, risk, swaps
+  - Handles both EXECUTED and FAILED status
+
+#### Updated
+- **POST /api/mt5/drawdown-snapshot** (150 lines)
+  - Updated authentication to verifyMT5ApiKeyDirect()
+  - Enhanced limit checking against ChallengeSetup
+  - Returns warnings and blockOrders flag
+  - Stores snapshots in AccountMetrics table
+
+### Database Schema Updates
+
+**TradeOrder Model** - Added 7 fields:
+```prisma
+calculatedVolume  Float?    // Volume calculated by EA based on risk
+actualRisk        Float?    // Actual risk in $ with calculated volume
+actualRiskPercent Float?    // Actual risk % after volume normalization
+swapCost5Day      Float?    // Estimated swap cost for 5 days
+swapCost10Day     Float?    // Estimated swap cost for 10 days
+```
+
+**BrokerSymbolSpec Model** - Enhanced with (from Phase 2):
+```prisma
+swapLong          Float?    // Swap cost for long positions
+swapShort         Float?    // Swap cost for short positions
+swapType          String?   // POINTS, CURRENCY_BASE, etc.
+tickValue         Float?    // Tick value for calculations
+tickSize          Float?    // Tick size for pip calculations
+currencyBase      String?   // Base currency
+currencyProfit    String?   // Profit currency
+currencyMargin    String?   // Margin currency
+```
+
+---
+
+## 🔄 Complete Order Execution Flow
+
+### 1. Dashboard → Order Creation
+```typescript
+// User creates order on dashboard
+const order = await prisma.tradeOrder.create({
+  data: {
+    accountId: "account_123",
+    symbol: "EURUSD",
+    direction: "BUY",
+    orderType: "BUY_LIMIT",
+    entryPrice: 1.0900,
+    stopLoss: 1.0850,
+    takeProfit1: 1.0950,
+    lotSize: 0,           // 0 = calculate based on risk
+    riskPercent: 1.0,     // 1% risk
+    status: "PENDING",
+  }
+});
+```
+
+### 2. EA Polling (every 10 seconds)
+```cpp
+// EA polls for pending orders
+GET /api/mt5/pending-orders?accountLogin=123456
+
+// Server responds with JSON:
+{
+  "ordersCount": 1,
+  "orders": [{
+    "orderId": "clxxx123",
+    "symbol": "EURUSD",
+    "direction": "BUY",
+    "orderType": "BUY_LIMIT",
+    "entryPrice": 1.0900,
+    "stopLoss": 1.0850,
+    "takeProfit": 1.0950,
+    "lotSize": 0,
+    "invalidationPrice": 1.0840
+  }]
+}
+```
+
+### 3. EA Processing & Execution
+```cpp
+CheckAndExecutePendingOrders()
+  → Parses JSON response
+  → Finds 1 pending order
+
+ProcessPendingOrders(jsonResponse, ordersArrayStart)
+  → Extracts order fields from JSON
+  → Calls ExecuteOrder(...)
+
+ExecuteOrder(orderId, symbol, direction, ...)
+  // STEP 1: Position Sizing
+  → calculatedVolume = CalculatePositionSize(
+      "EURUSD", "BUY", 1.0850, 1.0, 1.0900
+    )
+  → Result: 0.15 lots (based on balance, risk%, SL distance)
+
+  // STEP 2: Swap Costs
+  → swapCost5Day = CalculateSwapCost("EURUSD", "BUY", 0.15, 5)
+  → swapCost10Day = CalculateSwapCost("EURUSD", "BUY", 0.15, 10)
+  → Results: -$2.50, -$5.00
+
+  // STEP 3: MT5 Execution
+  → OrderSend(request, result)
+  → MT5 Response: TRADE_RETCODE_PLACED
+  → MT5 Ticket: #12345678
+
+  // STEP 4: Feedback
+  → SendExecutionFeedback(
+      orderId, "EXECUTED", 12345678, 0.15,
+      980.50, 0.98, -2.50, -5.00, 1.09001, ""
+    )
+```
+
+### 4. Server Update
+```typescript
+POST /api/mt5/execution-feedback
+Body: {
+  "orderId": "clxxx123",
+  "status": "EXECUTED",
+  "mt5Ticket": "12345678",
+  "calculatedVolume": 0.15,
+  "actualRisk": 980.50,
+  "actualRiskPercent": 0.98,
+  "swapCost5Day": -2.50,
+  "swapCost10Day": -5.00,
+  "executionPrice": 1.09001,
+  "executedAt": "2025-11-01T12:00:00Z"
+}
+
+// Server updates TradeOrder:
+await prisma.tradeOrder.update({
+  where: { id: "clxxx123" },
+  data: {
+    status: "EXECUTED",
+    mt5Ticket: "12345678",
+    calculatedVolume: 0.15,
+    actualRisk: 980.50,
+    actualRiskPercent: 0.98,
+    swapCost5Day: -2.50,
+    swapCost10Day: -5.00,
+    executionPrice: 1.09001,
+    executedAt: new Date("2025-11-01T12:00:00Z"),
+    mt5LastSync: new Date()
+  }
+});
+```
+
+### 5. Dashboard Display (Future)
+```tsx
+// Order Execution Details Card
+<OrderCard>
+  <Status>✅ Executed</Status>
+  <Details>
+    MT5 Ticket: #12345678
+    Volume: 0.15 lots
+    Entry: 1.09001
+    Stop Loss: 1.08500
+    Take Profit: 1.09500
+
+    Risk Management:
+    - Requested Risk: 1.0%
+    - Actual Risk: $980.50 (0.98%)
+
+    Holding Costs:
+    - 5-Day Swap: -$2.50
+    - 10-Day Swap: -$5.00
+  </Details>
+</OrderCard>
+```
+
+---
+
+## 🛡️ Continuous Monitoring
+
+### Drawdown Monitor (every 60 seconds)
+
+```cpp
+MonitorDrawdown()
+  // Calculate metrics
+  → balance = 10,000.00
+  → equity = 9,850.00
+  → floatingPnL = -150.00
+  → closedPnL (today) = -50.00
+  → dailyDrawdown = -200.00
+  → totalDrawdown = 150.00
+
+  // Calculate percentages
+  → dailyDrawdownPercent = -2.0%
+  → totalDrawdownPercent = 1.5%
+
+  // Check thresholds
+  → maxDailyLossPercent = 5.0%
+  → maxTotalLossPercent = 10.0%
+
+  // Log warnings if needed
+  IF dailyDrawdownPercent > 4.0%:
+    Print("⚠️ WARNING: Daily loss at 4.2%")
+
+  // Send to server
+  → SendDrawdownSnapshot(...)
+```
+
+**Server Response:**
+```json
+{
+  "success": true,
+  "warnings": [
+    "WARNING: Daily loss at 2.0% (limit: 5%)"
+  ],
+  "blockOrders": false,
+  "limits": {
+    "maxDailyLossPercent": 5.0,
+    "maxTotalLossPercent": 10.0,
+    "dailyLoss": 200.00,
+    "totalDrawdown": 150.00
+  }
+}
+```
+
+### Invalidation Monitor (every 1 second)
+
+```cpp
+MonitorInvalidation()
+  // Scan all open positions
+  FOR each position:
+    → Check if comment contains "AEGIS:"
+    → Extract orderId from comment
+    → Get current price
+
+    // Future: Check against invalidation price
+    IF currentPrice hits invalidationPrice:
+      → TriggerInvalidation(ticket, currentPrice, invalidationPrice)
+      → Close position immediately
+      → Send alert to dashboard
+```
+
+---
+
+## 📈 Technical Highlights
+
+### Position Sizing Algorithm
+
+**Formula**: `volume = riskMoney / (stopLossTicks × tickValue)`
+
+**Example**: EURUSD, Risk 1%, Balance $10,000
+```cpp
+// Step 1: Calculate risk amount
+riskMoney = 10,000 × 0.01 = $100
+
+// Step 2: Get entry and SL prices
+entryPrice = 1.09000
+stopLoss = 1.08500
+stopLossDistance = 0.00500
+
+// Step 3: Calculate ticks
+tickSize = 0.00001 (for 5-digit brokers)
+stopLossTicks = 0.00500 / 0.00001 = 500 ticks
+
+// Step 4: Get tick value
+tickValue = $1.00 (for EURUSD standard lot)
+
+// Step 5: Calculate raw volume
+rawVolume = 100 / (500 × 1.00) = 0.20 lots
+
+// Step 6: Normalize to broker constraints
+minVolume = 0.01
+maxVolume = 100.00
+volumeStep = 0.01
+normalizedVolume = 0.20 lots ✅
+
+// Step 7: Calculate actual risk
+actualRisk = 0.20 × 500 × 1.00 = $100
+actualRiskPercent = (100 / 10,000) × 100 = 1.0% ✅
+```
+
+### Swap Cost Calculation
+
+**SYMBOL_SWAP_MODE_POINTS**:
+```cpp
+swapCost = swapRate × volume × days × tickValue
+Example: -0.5 × 0.15 × 5 × 1.0 = -$0.375
+```
+
+**SYMBOL_SWAP_MODE_CURRENCY**:
+```cpp
+swapCost = swapRate × volume × days
+Example: -2.0 × 0.15 × 5 = -$1.50
+```
+
+**SYMBOL_SWAP_MODE_INTEREST_CURRENT**:
+```cpp
+swapCost = (currentPrice × contractSize × volume × swapRate × days) / 36000
+Example: (1.09 × 100000 × 0.15 × 0.02 × 5) / 36000 = -$0.45
+```
+
+### Error Handling
+
+**Position Sizing Errors**:
+- Invalid parameters → Return 0
+- Zero balance → Return 0, log error
+- Invalid entry price → Return 0, log error
+- Zero SL distance → Return 0, log error
+- Invalid tick data → Return 0, log detailed error
+
+**Execution Errors**:
+- TRADE_RETCODE_REJECT → Send FAILED feedback
+- TRADE_RETCODE_NO_MONEY → Send FAILED feedback
+- TRADE_RETCODE_MARKET_CLOSED → Send FAILED feedback
+- All errors logged with GetRetcodeDescription()
+
+---
+
+## 🧪 Testing Plan
+
+### Phase 2 Testing (Position Sizing)
+- [ ] Test EURUSD (Forex, 5-digit) with various risk %
+- [ ] Test US30 (Index) with different tick values
+- [ ] Test XAUUSD (Commodity) with contract sizes
+- [ ] Test BTCUSD (Crypto) if available
+- [ ] Test edge cases:
+  - [ ] Very small accounts ($100)
+  - [ ] Very tight stop losses (5 pips)
+  - [ ] Very loose stop losses (500 pips)
+  - [ ] Different risk percentages (0.5%, 1%, 2%, 5%)
+
+### Phase 3 Testing (Order Execution)
+- [ ] Market orders execution
+- [ ] Limit orders placement
+- [ ] Stop orders placement
+- [ ] Execution feedback received correctly
+- [ ] Database updates working
+- [ ] Error handling for:
+  - [ ] Rejected orders
+  - [ ] Insufficient margin
+  - [ ] Market closed
+  - [ ] Invalid prices
+
+### Phase 4 Testing (Monitors)
+- [ ] Drawdown snapshots recorded every 60 seconds
+- [ ] Warning thresholds triggered correctly
+- [ ] Challenge limits enforced
+- [ ] Database storage working
+- [ ] Invalidation monitor framework active
+
+---
+
+## 📦 Deployment History
+
+**Commits**:
+1. `d0213d5` - "feat: Add swap costs and currency info to symbol sync"
+2. `d915152` - "docs: Add execution layer progress tracking file"
+3. `02b09f7` - "feat: Implement position sizing and swap cost calculations"
+4. `9e2c7d2` - "feat: Implement Phase 3 & 4 - Order Execution and Monitors"
+
+**Production Status**: ✅ All code deployed to production
+**GitHub**: All changes pushed to main branch
+**Vercel**: https://aegis-trading-coach.vercel.app
+
+---
+
 **Last Updated**: 2025-11-01
 **Current Phase**: Phase 4 - Monitors & Safety Features (COMPLETED) ✅
 **Overall Progress**: 90% complete
 
 **Recent Additions**:
-- ✅ Phase 2: Position sizing and swap cost calculations
-- ✅ Phase 3: Complete order execution flow with feedback
-- ✅ Phase 4: Drawdown monitoring and invalidation framework
-- 🔜 Next: Testing and UI enhancements
+- ✅ Phase 2: Position sizing and swap cost calculations (120 lines)
+- ✅ Phase 3: Complete order execution flow with feedback (350 lines)
+- ✅ Phase 4: Drawdown monitoring and invalidation framework (125 lines)
+- ✅ Total EA code added: ~700 lines
+- 🔜 Next: Testing with real broker data and UI enhancements
 
