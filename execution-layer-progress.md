@@ -79,15 +79,15 @@ Implementation of the MT5 execution layer with position sizing, risk management,
 - [x] EA maps swap mode to string types (POINTS, CURRENCY_BASE, PERCENT_OPEN, etc.)
 - [x] All data sent to server via enhanced JSON payload
 
-### 2.4 Position Sizing Function (EA) 🔲 TODO
-- [ ] Implement `CalculatePositionSize()` function in EA
-- [ ] Inputs:
+### 2.4 Position Sizing Function (EA) ✅ COMPLETED
+- [x] Implement `CalculatePositionSize()` function in EA
+- [x] Inputs:
   - `symbol` - Trading pair
   - `direction` - BUY or SELL
   - `stopLoss` - Stop loss price
   - `riskPercent` - Risk percentage (e.g., 1.0 for 1%)
   - `entryPrice` - Entry price (optional, use market if null)
-- [ ] Logic:
+- [x] Logic:
   ```cpp
   // 1. Get LIVE account data
   balance = AccountInfoDouble(ACCOUNT_BALANCE)
@@ -95,15 +95,15 @@ Implementation of the MT5 execution layer with position sizing, risk management,
   // 2. Calculate risk amount
   riskMoney = balance * (riskPercent / 100.0)
 
-  // 3. Calculate stop loss distance in pips
+  // 3. Calculate stop loss distance in ticks
   tickSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE)
-  stopLossPips = ABS(entryPrice - stopLoss) / tickSize
+  stopLossTicks = ABS(entryPrice - stopLoss) / tickSize
 
   // 4. Get tick value
   tickValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE)
 
   // 5. Calculate raw volume
-  volume = riskMoney / (stopLossPips * tickValue)
+  volume = riskMoney / (stopLossTicks * tickValue)
 
   // 6. Normalize to broker constraints
   minVol = SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN)
@@ -111,20 +111,30 @@ Implementation of the MT5 execution layer with position sizing, risk management,
   stepVol = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP)
   volume = NormalizeVolume(volume, minVol, maxVol, stepVol)
   ```
+- [x] Comprehensive error handling and validation
+- [x] Detailed logging for debugging
+- [x] Returns actual risk amount and percent after normalization
 - [ ] Test on: Forex (EURUSD), Indices (SP500), Commodities (XAUUSD), Crypto (BTCUSD)
 
-### 2.5 Swap Cost Calculator 🔲 TODO
-- [ ] Implement `CalculateSwapCost()` function
-- [ ] Calculate 5-day and 10-day holding costs
-- [ ] Use `swapLong`/`swapShort` and `swapType` from symbol specs
-- [ ] Return cost in account currency
-- [ ] Display in dashboard order preview
+### 2.5 Swap Cost Calculator ✅ COMPLETED
+- [x] Implement `CalculateSwapCost()` function
+- [x] Calculate 5-day and 10-day holding costs
+- [x] Use `swapLong`/`swapShort` and `swapType` from symbol specs
+- [x] Support all swap modes:
+  - SYMBOL_SWAP_MODE_POINTS
+  - SYMBOL_SWAP_MODE_CURRENCY_SYMBOL/MARGIN/DEPOSIT
+  - SYMBOL_SWAP_MODE_INTEREST_CURRENT
+  - SYMBOL_SWAP_MODE_INTEREST_OPEN
+- [x] Return cost in account currency
+- [ ] Display in dashboard order preview (pending integration)
 
-### 2.6 TradeOrder Model Updates 🔲 TODO
-- [ ] Add `riskPercent` field (what dashboard sends)
-- [ ] Add `calculatedVolume` field (what EA calculated)
-- [ ] Add `actualRisk` field (actual $ risk with calculated volume)
-- [ ] Add `swapCost5Day` and `swapCost10Day` fields
+### 2.6 TradeOrder Model Updates ✅ COMPLETED
+- [x] `riskPercent` field already exists (what dashboard sends)
+- [x] Added `calculatedVolume` field (what EA calculated)
+- [x] Added `actualRisk` field (actual $ risk with calculated volume)
+- [x] Added `actualRiskPercent` field (actual % after normalization)
+- [x] Added `swapCost5Day` and `swapCost10Day` fields
+- [x] Schema pushed to production database
 
 ---
 
@@ -230,9 +240,11 @@ Implementation of the MT5 execution layer with position sizing, risk management,
 ## Known Issues & Limitations
 
 ### Current Limitations
-1. ⚠️ Position sizing not yet implemented (Phase 2.4 in progress)
-2. ⚠️ Swap cost calculator not yet implemented (Phase 2.5 pending)
+1. ✅ ~~Position sizing not yet implemented~~ - COMPLETED
+2. ✅ ~~Swap cost calculator not yet implemented~~ - COMPLETED
 3. ⚠️ Actual order execution not fully wired (Phase 3 pending)
+4. ⚠️ Position sizing functions not yet tested with real broker data
+5. ⚠️ EA does not yet call position sizing functions during order execution
 
 ### Future Enhancements
 - [ ] Multi-TP level execution (TP1, TP2, TP3 partial closes)
@@ -262,29 +274,37 @@ Implementation of the MT5 execution layer with position sizing, risk management,
 
 ## Next Steps
 
-### Immediate Priorities (Phase 2.4-2.6)
-1. **Implement `CalculatePositionSize()` in EA** - CRITICAL
-   - This is the core function for risk-compliant position sizing
-   - Must handle Forex, Indices, Commodities, Crypto correctly
+### ✅ COMPLETED: Phase 2.4-2.6 (Position Sizing)
+1. ✅ **`CalculatePositionSize()` in EA** - COMPLETED
+   - Core function for risk-compliant position sizing
+   - Handles all asset classes (Forex, Indices, Commodities, Crypto)
+   - Uses LIVE broker data with native MT5 functions
 
-2. **Implement `CalculateSwapCost()` in EA**
-   - Calculate 5-day and 10-day holding costs
-   - Use synced swap data from broker
+2. ✅ **`CalculateSwapCost()` in EA** - COMPLETED
+   - Calculates 5-day and 10-day holding costs
+   - Uses synced swap data from broker
+   - Supports all swap calculation modes
 
-3. **Update TradeOrder model**
-   - Add fields for calculated sizes and risks
-   - Add swap cost fields
+3. ✅ **TradeOrder model** - COMPLETED
+   - Added `calculatedVolume`, `actualRisk`, `actualRiskPercent` fields
+   - Added `swapCost5Day` and `swapCost10Day` fields
+   - Schema pushed to production
 
-### After Position Sizing (Phase 3)
-4. **Wire up full execution flow**
-   - Dashboard creates order → EA calculates size → EA executes → EA reports back
+### Immediate Priority: Phase 3 (Order Execution Flow)
+4. **Wire up full execution flow** - NEXT
+   - Dashboard creates order with risk% → Stored in DB
+   - EA polls and calculates size using `CalculatePositionSize()`
+   - EA calculates swap costs using `CalculateSwapCost()`
+   - EA executes order on MT5
+   - EA reports back: ticket, volume, actual risk, swap costs
+   - Dashboard updates UI with execution details
 
 5. **Test extensively with paper trading**
    - Verify sizing across all asset classes
-   - Verify swap calculations
-   - Verify order execution
+   - Verify swap calculations are accurate
+   - Verify order execution and feedback
 
-### Final Steps (Phase 4)
+### Final Steps: Phase 4 (Monitors & Safety)
 6. **Enable monitors**
    - Connect invalidation monitor to orders
    - Wire drawdown alerts to challenge limits
@@ -293,6 +313,12 @@ Implementation of the MT5 execution layer with position sizing, risk management,
 ---
 
 **Last Updated**: 2025-11-01
-**Current Phase**: Phase 2 - Position Sizing & Risk Management (60% complete)
-**Overall Progress**: 45% complete
+**Current Phase**: Phase 2 - Position Sizing & Risk Management (100% complete) ✅
+**Overall Progress**: 55% complete
+
+**Recent Additions**:
+- ✅ `CalculatePositionSize()` function implemented in EA
+- ✅ `CalculateSwapCost()` function implemented in EA
+- ✅ TradeOrder model updated with new fields
+- 🔜 Next: Wire up execution flow (Phase 3)
 

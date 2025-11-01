@@ -495,8 +495,13 @@ model TradeOrder {
   takeProfit3       Float?
 
   // Risk Management
-  riskPercent       Float             // e.g., 1.0 for 1%
+  riskPercent       Float             // e.g., 1.0 for 1% (what dashboard sends to EA)
   riskAmount        Float             // Calculated risk in account currency
+  calculatedVolume  Float?            // Volume calculated by EA based on risk
+  actualRisk        Float?            // Actual risk in $ with calculated volume
+  actualRiskPercent Float?            // Actual risk % after volume normalization
+  swapCost5Day      Float?            // Estimated swap cost for 5 days
+  swapCost10Day     Float?            // Estimated swap cost for 10 days
 
   // YAML Integration (NEW)
   yamlAnalysisId    String?

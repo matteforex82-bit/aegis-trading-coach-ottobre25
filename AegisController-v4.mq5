@@ -901,6 +901,194 @@ double CalculateTodayClosedPnL() {
 }
 
 //+------------------------------------------------------------------+
+//| Calculate optimal position size based on risk percentage        |
+//| Parameters:                                                      |
+//|   - symbol: Trading pair (e.g., "EURUSD")                       |
+//|   - direction: "BUY" or "SELL"                                  |
+//|   - stopLossPrice: Stop loss price level                        |
+//|   - riskPercent: Risk percentage (e.g., 1.0 for 1%)             |
+//|   - entryPrice: Entry price (0 = use current market price)      |
+//| Returns: Calculated volume in lots (0 if error)                 |
+//+------------------------------------------------------------------+
+double CalculatePositionSize(string symbol, string direction, double stopLossPrice, double riskPercent, double entryPrice = 0) {
+    // Validate inputs
+    if(symbol == "" || stopLossPrice <= 0 || riskPercent <= 0) {
+        Print("❌ CalculatePositionSize: Invalid parameters");
+        return 0;
+    }
+
+    // 1. Get LIVE account balance
+    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+    if(balance <= 0) {
+        Print("❌ CalculatePositionSize: Invalid account balance: ", balance);
+        return 0;
+    }
+
+    // 2. Calculate risk amount in account currency
+    double riskMoney = balance * (riskPercent / 100.0);
+    if(ENABLE_LOGGING) {
+        Print("💰 Risk calculation:");
+        Print("   Balance: $", DoubleToString(balance, 2));
+        Print("   Risk %: ", DoubleToString(riskPercent, 2), "%");
+        Print("   Risk amount: $", DoubleToString(riskMoney, 2));
+    }
+
+    // 3. Determine entry price (use market price if not specified)
+    double actualEntryPrice = entryPrice;
+    if(actualEntryPrice <= 0) {
+        if(direction == "BUY") {
+            actualEntryPrice = SymbolInfoDouble(symbol, SYMBOL_ASK);
+        } else {
+            actualEntryPrice = SymbolInfoDouble(symbol, SYMBOL_BID);
+        }
+    }
+
+    if(actualEntryPrice <= 0) {
+        Print("❌ CalculatePositionSize: Invalid entry price for ", symbol);
+        return 0;
+    }
+
+    // 4. Calculate stop loss distance in price points
+    double stopLossDistance = MathAbs(actualEntryPrice - stopLossPrice);
+    if(stopLossDistance <= 0) {
+        Print("❌ CalculatePositionSize: Stop loss distance is zero or negative");
+        return 0;
+    }
+
+    // 5. Get tick size and tick value
+    double tickSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
+    double tickValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);
+
+    if(tickSize <= 0 || tickValue <= 0) {
+        Print("❌ CalculatePositionSize: Invalid tick data for ", symbol);
+        Print("   Tick size: ", tickSize);
+        Print("   Tick value: ", tickValue);
+        return 0;
+    }
+
+    // 6. Calculate stop loss distance in ticks
+    double stopLossTicks = stopLossDistance / tickSize;
+
+    if(ENABLE_LOGGING) {
+        Print("📏 Distance calculation:");
+        Print("   Entry price: ", DoubleToString(actualEntryPrice, 5));
+        Print("   Stop loss: ", DoubleToString(stopLossPrice, 5));
+        Print("   Distance: ", DoubleToString(stopLossDistance, 5));
+        Print("   Tick size: ", DoubleToString(tickSize, 5));
+        Print("   Stop loss in ticks: ", DoubleToString(stopLossTicks, 2));
+        Print("   Tick value: $", DoubleToString(tickValue, 5));
+    }
+
+    // 7. Calculate raw volume
+    // Formula: volume = riskMoney / (stopLossTicks * tickValue)
+    double rawVolume = riskMoney / (stopLossTicks * tickValue);
+
+    if(ENABLE_LOGGING) {
+        Print("📊 Raw volume calculated: ", DoubleToString(rawVolume, 3), " lots");
+    }
+
+    // 8. Get broker volume constraints
+    double minVolume = SymbolInfoDouble(symbol, SYMBOL_VOLUME_MIN);
+    double maxVolume = SymbolInfoDouble(symbol, SYMBOL_VOLUME_MAX);
+    double volumeStep = SymbolInfoDouble(symbol, SYMBOL_VOLUME_STEP);
+
+    if(minVolume <= 0 || volumeStep <= 0) {
+        Print("❌ CalculatePositionSize: Invalid broker volume limits for ", symbol);
+        Print("   Min volume: ", minVolume);
+        Print("   Max volume: ", maxVolume);
+        Print("   Volume step: ", volumeStep);
+        return 0;
+    }
+
+    // 9. Normalize volume to broker constraints
+    // Round down to nearest step
+    double normalizedVolume = MathFloor(rawVolume / volumeStep) * volumeStep;
+
+    // Ensure within min/max limits
+    if(normalizedVolume < minVolume) {
+        Print("⚠️  Calculated volume (", DoubleToString(normalizedVolume, 3), ") below minimum (", DoubleToString(minVolume, 3), ")");
+        normalizedVolume = minVolume;
+    }
+
+    if(normalizedVolume > maxVolume) {
+        Print("⚠️  Calculated volume (", DoubleToString(normalizedVolume, 3), ") above maximum (", DoubleToString(maxVolume, 3), ")");
+        normalizedVolume = maxVolume;
+    }
+
+    // 10. Calculate actual risk with normalized volume
+    double actualRiskMoney = normalizedVolume * stopLossTicks * tickValue;
+    double actualRiskPercent = (actualRiskMoney / balance) * 100.0;
+
+    if(ENABLE_LOGGING) {
+        Print("✅ Position size calculated:");
+        Print("   Raw volume: ", DoubleToString(rawVolume, 3), " lots");
+        Print("   Normalized volume: ", DoubleToString(normalizedVolume, 3), " lots");
+        Print("   Min/Max/Step: ", DoubleToString(minVolume, 3), "/", DoubleToString(maxVolume, 3), "/", DoubleToString(volumeStep, 3));
+        Print("   Actual risk: $", DoubleToString(actualRiskMoney, 2), " (", DoubleToString(actualRiskPercent, 2), "%)");
+    }
+
+    return normalizedVolume;
+}
+
+//+------------------------------------------------------------------+
+//| Calculate swap cost for holding a position                      |
+//| Parameters:                                                      |
+//|   - symbol: Trading pair                                        |
+//|   - direction: "BUY" or "SELL"                                  |
+//|   - volume: Position size in lots                               |
+//|   - days: Number of days (5 or 10 typically)                    |
+//| Returns: Swap cost in account currency (negative = cost)        |
+//+------------------------------------------------------------------+
+double CalculateSwapCost(string symbol, string direction, double volume, int days) {
+    // Get swap rates
+    double swapLong = SymbolInfoDouble(symbol, SYMBOL_SWAP_LONG);
+    double swapShort = SymbolInfoDouble(symbol, SYMBOL_SWAP_SHORT);
+    int swapMode = (int)SymbolInfoInteger(symbol, SYMBOL_SWAP_MODE);
+
+    // Select appropriate swap rate
+    double swapRate = (direction == "BUY") ? swapLong : swapShort;
+
+    // Get contract size and point
+    double contractSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_CONTRACT_SIZE);
+    double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+
+    double swapCost = 0;
+
+    // Calculate swap based on mode
+    if(swapMode == SYMBOL_SWAP_MODE_POINTS) {
+        // Swap in points: multiply by point value
+        double tickValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);
+        swapCost = swapRate * volume * days * tickValue;
+    }
+    else if(swapMode == SYMBOL_SWAP_MODE_CURRENCY_SYMBOL ||
+            swapMode == SYMBOL_SWAP_MODE_CURRENCY_MARGIN ||
+            swapMode == SYMBOL_SWAP_MODE_CURRENCY_DEPOSIT) {
+        // Swap in currency units
+        swapCost = swapRate * volume * days;
+    }
+    else if(swapMode == SYMBOL_SWAP_MODE_INTEREST_CURRENT) {
+        // Swap as percentage of current price
+        double currentPrice = SymbolInfoDouble(symbol, (direction == "BUY") ? SYMBOL_BID : SYMBOL_ASK);
+        swapCost = (currentPrice * contractSize * volume * swapRate * days) / 36000.0;
+    }
+    else if(swapMode == SYMBOL_SWAP_MODE_INTEREST_OPEN) {
+        // Swap as annual percentage - not implemented fully, use approximation
+        double currentPrice = SymbolInfoDouble(symbol, (direction == "BUY") ? SYMBOL_BID : SYMBOL_ASK);
+        swapCost = (currentPrice * contractSize * volume * swapRate * days) / 36000.0;
+    }
+
+    if(ENABLE_LOGGING) {
+        Print("💸 Swap calculation for ", symbol, " (", direction, "):");
+        Print("   Swap rate: ", DoubleToString(swapRate, 2));
+        Print("   Volume: ", DoubleToString(volume, 2), " lots");
+        Print("   Days: ", days);
+        Print("   Estimated cost: $", DoubleToString(swapCost, 2));
+    }
+
+    return swapCost;
+}
+
+//+------------------------------------------------------------------+
 //| Attempt auto-registration with AEGIS server                     |
 //| Returns true if successful, false otherwise                     |
 //+------------------------------------------------------------------+
