@@ -863,6 +863,16 @@ model BrokerSymbolSpec {
   marginMaintenance Float?       // Maintenance margin requirement
   marginRequired  Float?         // Margin required for 1 lot
 
+  // Swap Costs (for overnight positions)
+  swapLong        Float?         // Swap cost for long positions (can be negative for credit)
+  swapShort       Float?         // Swap cost for short positions (can be negative for credit)
+  swapType        String?        // POINTS, CURRENCY_BASE, CURRENCY_PROFIT, CURRENCY_MARGIN, PERCENT_OPEN, PERCENT_ANNUAL
+
+  // Currency Information
+  currencyBase    String?        // Base currency (e.g., EUR in EURUSD)
+  currencyProfit  String?        // Profit currency (e.g., USD in EURUSD)
+  currencyMargin  String?        // Margin currency
+
   // Symbol Category
   category        String?        // FOREX, INDICES, COMMODITIES, CRYPTO, etc.
 

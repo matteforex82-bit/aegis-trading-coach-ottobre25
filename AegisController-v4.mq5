@@ -267,12 +267,35 @@ void SendSymbolSpecifications() {
         int tradeMode = (int)SymbolInfoInteger(symbol, SYMBOL_TRADE_MODE);
         string description = SymbolInfoString(symbol, SYMBOL_DESCRIPTION);
 
+        // Get swap costs
+        double swapLong = SymbolInfoDouble(symbol, SYMBOL_SWAP_LONG);
+        double swapShort = SymbolInfoDouble(symbol, SYMBOL_SWAP_SHORT);
+        int swapMode = (int)SymbolInfoInteger(symbol, SYMBOL_SWAP_MODE);
+
+        // Get tick information
+        double tickValue = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_VALUE);
+        double tickSize = SymbolInfoDouble(symbol, SYMBOL_TRADE_TICK_SIZE);
+
+        // Get currency information
+        string currencyBase = SymbolInfoString(symbol, SYMBOL_CURRENCY_BASE);
+        string currencyProfit = SymbolInfoString(symbol, SYMBOL_CURRENCY_PROFIT);
+        string currencyMargin = SymbolInfoString(symbol, SYMBOL_CURRENCY_MARGIN);
+
         // Determine trade mode string
         string tradeModeStr = "DISABLED";
         if(tradeMode == SYMBOL_TRADE_MODE_FULL) tradeModeStr = "FULL";
         else if(tradeMode == SYMBOL_TRADE_MODE_CLOSEONLY) tradeModeStr = "CLOSE_ONLY";
 
-        // Escape description for JSON
+        // Determine swap type string
+        string swapTypeStr = "POINTS";
+        if(swapMode == SYMBOL_SWAP_MODE_POINTS) swapTypeStr = "POINTS";
+        else if(swapMode == SYMBOL_SWAP_MODE_CURRENCY_SYMBOL) swapTypeStr = "CURRENCY_BASE";
+        else if(swapMode == SYMBOL_SWAP_MODE_CURRENCY_MARGIN) swapTypeStr = "CURRENCY_MARGIN";
+        else if(swapMode == SYMBOL_SWAP_MODE_CURRENCY_DEPOSIT) swapTypeStr = "CURRENCY_PROFIT";
+        else if(swapMode == SYMBOL_SWAP_MODE_INTEREST_CURRENT) swapTypeStr = "PERCENT_OPEN";
+        else if(swapMode == SYMBOL_SWAP_MODE_INTEREST_OPEN) swapTypeStr = "PERCENT_ANNUAL";
+
+        // Escape strings for JSON
         StringReplace(description, "\"", "\\\"");
         StringReplace(description, "\\", "\\\\");
 
@@ -291,7 +314,18 @@ void SendSymbolSpecifications() {
         symbolsJson += "\"stopLevel\":" + IntegerToString(stopLevel) + ",";
         symbolsJson += "\"freezeLevel\":" + IntegerToString(freezeLevel) + ",";
         symbolsJson += "\"tradeMode\":\"" + tradeModeStr + "\",";
-        symbolsJson += "\"spread\":" + IntegerToString(spread);
+        symbolsJson += "\"spread\":" + IntegerToString(spread) + ",";
+        // Swap costs
+        symbolsJson += "\"swapLong\":" + DoubleToString(swapLong, 2) + ",";
+        symbolsJson += "\"swapShort\":" + DoubleToString(swapShort, 2) + ",";
+        symbolsJson += "\"swapType\":\"" + swapTypeStr + "\",";
+        // Tick information
+        symbolsJson += "\"tickValue\":" + DoubleToString(tickValue, 5) + ",";
+        symbolsJson += "\"tickSize\":" + DoubleToString(tickSize, digits) + ",";
+        // Currency information
+        symbolsJson += "\"currencyBase\":\"" + currencyBase + "\",";
+        symbolsJson += "\"currencyProfit\":\"" + currencyProfit + "\",";
+        symbolsJson += "\"currencyMargin\":\"" + currencyMargin + "\"";
         symbolsJson += "}";
 
         validSymbols++;
