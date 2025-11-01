@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db as prisma } from '@/lib/db';
-import { verifyMT5ApiKey, getTradingAccountByLogin } from '@/lib/mt5-auth';
+import { verifyMT5ApiKeyDirect } from '@/lib/mt5-auth';
 
 /**
  * GET /api/mt5/pending-orders
@@ -15,10 +15,10 @@ import { verifyMT5ApiKey, getTradingAccountByLogin } from '@/lib/mt5-auth';
  */
 export async function GET(request: NextRequest) {
   try {
-    // 1. Authenticate via API Key
-    const userId = await verifyMT5ApiKey(request);
+    // 1. Authenticate via API Key using direct authentication
+    const account = await verifyMT5ApiKeyDirect(request);
 
-    if (!userId) {
+    if (!account) {
       return NextResponse.json(
         { error: 'Invalid or missing API key' },
         { status: 403 }
@@ -36,13 +36,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 3. Get trading account for authenticated user
-    const account = await getTradingAccountByLogin(userId, accountLogin);
-
-    if (!account) {
+    // 3. Verify the account login matches the authenticated account
+    if (account.login !== accountLogin) {
       return NextResponse.json(
-        { error: 'Trading account not found' },
-        { status: 404 }
+        { error: 'Account login does not match API key' },
+        { status: 403 }
       );
     }
 
