@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
 
     if (challengeSetup) {
       const setup = challengeSetup;
-      const maxDailyLossPercent = setup.maxDailyLossPercent || 5.0;
-      const maxTotalLossPercent = setup.maxTotalLossPercent || 10.0;
+      const maxDailyLossPercent = setup.dailyMaxPercent || 5.0;
+      const maxTotalLossPercent = setup.overRollMaxPercent || 10.0;
 
       // Calculate drawdown percentages
       const totalDrawdownPercent = totalDrawdown ? (Math.abs(totalDrawdown) / balance) * 100 : 0;
@@ -130,8 +130,8 @@ export async function POST(request: NextRequest) {
       blockOrders: shouldBlockOrders,
       limits: challengeSetup
         ? {
-            maxDailyLossPercent: challengeSetup.maxDailyLossPercent || 5.0,
-            maxTotalLossPercent: challengeSetup.maxTotalLossPercent || 10.0,
+            maxDailyLossPercent: challengeSetup.dailyMaxPercent || 5.0,
+            maxTotalLossPercent: challengeSetup.overRollMaxPercent || 10.0,
             dailyLoss: Math.abs(dailyDrawdown || 0),
             totalDrawdown: Math.abs(totalDrawdown || 0),
           }
