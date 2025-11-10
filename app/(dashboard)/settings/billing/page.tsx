@@ -11,6 +11,8 @@ import Link from 'next/link'
 import { BillingManagement } from '@/components/billing/BillingManagement'
 import { PlanActions } from '@/components/billing/PlanActions'
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Billing - Settings',
   description: 'Manage your subscription and billing details',

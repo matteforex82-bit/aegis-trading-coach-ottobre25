@@ -5,6 +5,8 @@ import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "AEGIS Trading Coach",
   description: "Professional trading dashboard with MT4/MT5 integration",
