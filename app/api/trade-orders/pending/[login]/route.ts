@@ -33,9 +33,14 @@ export async function GET(
       where: { isActive: true },
     });
 
+    console.log(`[MT5 Auth] Checking ${activeKeys.length} active API keys`);
+    console.log(`[MT5 Auth] Incoming key: ${apiKey.substring(0, 20)}...`);
+
     let apiKeyRecord = null;
     for (const keyRecord of activeKeys) {
+      console.log(`[MT5 Auth] Comparing with key: ${keyRecord.name}`);
       const isMatch = await bcrypt.compare(apiKey, keyRecord.key);
+      console.log(`[MT5 Auth] Match result: ${isMatch}`);
       if (isMatch) {
         apiKeyRecord = keyRecord;
         break;
@@ -43,11 +48,14 @@ export async function GET(
     }
 
     if (!apiKeyRecord) {
+      console.log('[MT5 Auth] No matching API key found');
       return NextResponse.json(
         { error: 'Invalid or inactive API Key' },
         { status: 401 }
       );
     }
+
+    console.log(`[MT5 Auth] Authenticated successfully with key: ${apiKeyRecord.name}`);
 
     // Update last used timestamp
     await db.apiKey.update({
