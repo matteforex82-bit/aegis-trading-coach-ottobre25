@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
     });
 
     // 4. Get pending orders for this account
+    console.log(`[MT5 Pending Orders] Fetching orders for account ${accountLogin}`);
     const pendingOrders = await prisma.tradeOrder.findMany({
       where: {
         accountId: account.id,
@@ -61,6 +62,11 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: 'asc',
       },
+    });
+
+    console.log(`[MT5 Pending Orders] Found ${pendingOrders.length} pending orders`);
+    pendingOrders.forEach((order, index) => {
+      console.log(`  ${index + 1}. ${order.symbol} ${order.direction} ${order.orderType} - Status: ${order.status}, Lots: ${order.lotSize}`);
     });
 
     // 5. Format orders for MT5 EA
@@ -80,7 +86,7 @@ export async function GET(request: NextRequest) {
       createdAt: order.createdAt.toISOString(),
     }));
 
-    return NextResponse.json({
+    const response = {
       success: true,
       ordersCount: formattedOrders.length,
       orders: formattedOrders,
@@ -90,7 +96,12 @@ export async function GET(request: NextRequest) {
         broker: account.broker,
         challengeActive: !!challengeSetup,
       },
-    });
+    };
+
+    console.log(`[MT5 Pending Orders] Returning ${formattedOrders.length} orders to EA`);
+    console.log(`[MT5 Pending Orders] Response JSON length: ${JSON.stringify(response).length} bytes`);
+
+    return NextResponse.json(response);
   } catch (error: any) {
     console.error('Error fetching pending orders:', error);
     return NextResponse.json(
