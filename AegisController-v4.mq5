@@ -784,9 +784,9 @@ void CheckAndExecutePendingOrders() {
         string ordersCountStr = "";
         int numStart = ordersCountPos + 15; // Skip "ordersCount":
         for(int i = numStart; i < StringLen(jsonResponse); i++) {
-            string char = StringSubstr(jsonResponse, i, 1);
-            if(char >= "0" && char <= "9") {
-                ordersCountStr += char;
+            string ch = StringSubstr(jsonResponse, i, 1);
+            if(ch >= "0" && ch <= "9") {
+                ordersCountStr += ch;
             } else {
                 break;
             }
@@ -1075,9 +1075,9 @@ double ExtractJsonDouble(string json, string key) {
     string numStr = "";
 
     for(int i = startPos; i < StringLen(json); i++) {
-        string char = StringSubstr(json, i, 1);
-        if((char >= "0" && char <= "9") || char == "." || char == "-") {
-            numStr += char;
+        string ch = StringSubstr(json, i, 1);
+        if((ch >= "0" && ch <= "9") || ch == "." || ch == "-") {
+            numStr += ch;
         } else {
             break;
         }
