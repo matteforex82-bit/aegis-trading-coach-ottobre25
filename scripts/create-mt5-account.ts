@@ -4,7 +4,7 @@ import crypto from 'crypto'
 const db = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL || process.env.POSTGRES_URL
+      url: process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.PRISMA_ACCELERATE_URL
     }
   }
 })
