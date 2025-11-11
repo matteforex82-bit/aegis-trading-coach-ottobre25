@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 /**
  * POST /api/trade-orders/confirm-execution
@@ -26,13 +27,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify API key
-    const apiKeyRecord = await db.apiKey.findFirst({
-      where: {
-        key: apiKey,
-        isActive: true,
-      },
+    // Verify API key exists and is active
+    // Get all active API keys and compare with bcrypt
+    const activeKeys = await db.apiKey.findMany({
+      where: { isActive: true },
     });
+
+    let apiKeyRecord = null;
+    for (const keyRecord of activeKeys) {
+      const isMatch = await bcrypt.compare(apiKey, keyRecord.key);
+      if (isMatch) {
+        apiKeyRecord = keyRecord;
+        break;
+      }
+    }
 
     if (!apiKeyRecord) {
       return NextResponse.json(

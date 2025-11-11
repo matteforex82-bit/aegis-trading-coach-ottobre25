@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 /**
  * GET /api/trade-orders/pending/{login}
@@ -27,12 +28,19 @@ export async function GET(
     }
 
     // Verify API key exists and is active
-    const apiKeyRecord = await db.apiKey.findFirst({
-      where: {
-        key: apiKey, // Key is already hashed in database
-        isActive: true,
-      },
+    // Get all active API keys and compare with bcrypt
+    const activeKeys = await db.apiKey.findMany({
+      where: { isActive: true },
     });
+
+    let apiKeyRecord = null;
+    for (const keyRecord of activeKeys) {
+      const isMatch = await bcrypt.compare(apiKey, keyRecord.key);
+      if (isMatch) {
+        apiKeyRecord = keyRecord;
+        break;
+      }
+    }
 
     if (!apiKeyRecord) {
       return NextResponse.json(
