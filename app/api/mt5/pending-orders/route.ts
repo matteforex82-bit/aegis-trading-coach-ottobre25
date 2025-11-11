@@ -99,9 +99,18 @@ export async function GET(request: NextRequest) {
     };
 
     console.log(`[MT5 Pending Orders] Returning ${formattedOrders.length} orders to EA`);
-    console.log(`[MT5 Pending Orders] Response JSON length: ${JSON.stringify(response).length} bytes`);
 
-    return NextResponse.json(response);
+    // Create compact JSON without spaces for MQL5 parsing compatibility
+    const compactJson = JSON.stringify(response);
+    console.log(`[MT5 Pending Orders] Response JSON length: ${compactJson.length} bytes`);
+
+    // Return with custom JSON formatting (no spaces after colons)
+    return new NextResponse(compactJson, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   } catch (error: any) {
     console.error('Error fetching pending orders:', error);
     return NextResponse.json(
