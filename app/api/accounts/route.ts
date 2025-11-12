@@ -79,7 +79,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create trading account
+    // Auto-generate API key for MT5 connection (simple base64url format)
+    const keyValue = crypto.randomBytes(32).toString("base64url")
+    console.log(`[Account Create] Generated API key for account ${login}`)
+
+    // Create trading account with mt5ApiKey
     const account = await db.tradingAccount.create({
       data: {
         userId: session.user.id,
@@ -98,20 +102,21 @@ export async function POST(request: NextRequest) {
         maxDrawdown: maxDrawdown ? parseFloat(maxDrawdown) : null,
         profitTarget: profitTarget ? parseFloat(profitTarget) : null,
         status: "ACTIVE",
+        mt5ApiKey: keyValue, // Store plaintext key for MT5 EA authentication
       },
     })
 
-    // Auto-generate API key for MT5 connection
-    const keyValue = `sk_aegis_${crypto.randomBytes(32).toString("hex")}`
-
+    // Also create in ApiKey table for dashboard management
     const apiKey = await db.apiKey.create({
       data: {
         userId: session.user.id,
         name: `MT5-${account.login}`,
-        key: keyValue,
+        key: keyValue, // Store same key for reference
         isActive: true,
       },
     })
+
+    console.log(`[Account Create] Created account ${login} with API key`)
 
     // Return account + API key (ONLY TIME we show full key)
     return NextResponse.json({

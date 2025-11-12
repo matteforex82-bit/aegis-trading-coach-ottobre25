@@ -28,11 +28,28 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Soft delete
-    await db.tradingAccount.update({
-      where: { id },
-      data: { deletedAt: new Date() },
+    // Hard delete - remove all related data in correct order
+    console.log(`[Account Delete] Deleting account ${account.login} and all related data...`)
+
+    // Delete related data in order (respecting foreign key constraints)
+    await db.drawdownSnapshot.deleteMany({ where: { accountId: id } })
+    await db.tradeOrder.deleteMany({ where: { accountId: id } })
+    await db.position.deleteMany({ where: { accountId: id } })
+    await db.trade.deleteMany({ where: { accountId: id } })
+    await db.challengeSetup.deleteMany({ where: { accountId: id } })
+
+    // Delete associated API keys
+    await db.apiKey.deleteMany({
+      where: {
+        userId: session.user.id,
+        name: { contains: account.login }
+      }
     })
+
+    // Finally delete the account itself
+    await db.tradingAccount.delete({ where: { id } })
+
+    console.log(`[Account Delete] Successfully deleted account ${account.login}`)
 
     return NextResponse.json({ success: true })
   } catch (error) {
