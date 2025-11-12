@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(PRISMA_ACCELERATE_URL=\"prisma+postgres://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqd3RfaWQiOjEsInNlY3VyZV9rZXkiOiJza19ZX2d6RlZkY0Y3d0ozdl9RdXRDMWUiLCJhcGlfa2V5IjoiMDFLNlhNNTlBNzBGSDdHMlFLWkcwMFRXQ0QiLCJ0ZW5hbnRfaWQiOiJhMGMwMTFhZDk2NWIzYmRmNzc4N2Q5YTVmZjVmZmNkYTYzZmVmYzQ3MzljNDMxZjRmODMxZDU0YTdiNDNmMTAyIiwiaW50ZXJuYWxfc2VjcmV0IjoiMzU4NTQxMTgtOWUxYi00ZmU0LTg0MzAtODI1MDc1ZjI1Y2ViIn0.jzN29wCHpqA49rCArahRmcpn_83IvhvUPS2uT6HcKhw\" npx tsx:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(curl:*)",
+      "Bash(git push)",
+      "Bash(vercel:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nImplement self-service account management with hard delete\n\nCHANGES:\n1. DELETE endpoint (/api/accounts/[id]):\n   - Changed from soft delete to hard delete\n   - Deletes all related data in cascade:\n     * DrawdownSnapshots\n     * TradeOrders\n     * Positions\n     * Trades\n     * ChallengeSetup\n     * ApiKeys\n   - Ensures complete cleanup when user clicks trash icon\n\n2. POST endpoint (/api/accounts):\n   - Generate API key in simple base64url format\n   - Save key in BOTH locations:\n     * TradingAccount.mt5ApiKey (plaintext for EA)\n     * ApiKey table (for dashboard management)\n   - Return full key only at creation time\n\nIMPACT:\n- Users can now autonomously:\n  1. Delete old accounts completely (trash icon)\n  2. Create new accounts and get API key immediately\n  3. No need for technical intervention to reconnect accounts\n- Fixes 403 authentication errors by ensuring mt5ApiKey is populated\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
