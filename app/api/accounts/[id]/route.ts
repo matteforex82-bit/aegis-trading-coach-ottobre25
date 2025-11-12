@@ -33,10 +33,19 @@ export async function DELETE(
 
     // Delete related data in order (respecting foreign key constraints)
     await db.drawdownSnapshot.deleteMany({ where: { accountId: id } })
+    await db.pnLSnapshot.deleteMany({ where: { accountId: id } })
+    await db.currencyExposure.deleteMany({ where: { accountId: id } })
+    await db.violationLog.deleteMany({ where: { accountId: id } })
+    await db.alert.deleteMany({ where: { accountId: id } })
+    await db.disciplineReport.deleteMany({ where: { accountId: id } })
+    await db.accountMetrics.deleteMany({ where: { accountId: id } })
     await db.tradeOrder.deleteMany({ where: { accountId: id } })
-    await db.position.deleteMany({ where: { accountId: id } })
     await db.trade.deleteMany({ where: { accountId: id } })
     await db.challengeSetup.deleteMany({ where: { accountId: id } })
+    await db.symbolMapping.deleteMany({ where: { accountId: id } })
+    await db.brokerSymbolSpec.deleteMany({ where: { accountId: id } })
+    await db.propFirmChallenge.deleteMany({ where: { accountId: id } })
+    await db.yAMLAnalysis.deleteMany({ where: { accountId: id } })
 
     // Delete associated API keys
     await db.apiKey.deleteMany({
