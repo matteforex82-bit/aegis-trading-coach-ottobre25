@@ -100,12 +100,17 @@ export async function GET(request: NextRequest) {
 
     console.log(`[MT5 Pending Orders] Returning ${formattedOrders.length} orders to EA`);
 
-    // Create compact JSON without spaces for MQL5 parsing compatibility
-    const compactJson = JSON.stringify(response);
-    console.log(`[MT5 Pending Orders] Response JSON length: ${compactJson.length} bytes`);
+    // CRITICAL FIX: MQL5 parser bug at line 785 uses offset +15 instead of +14
+    // The string "ordersCount": is 14 chars, but code reads position 15
+    // Solution: Add space before the number to match the incorrect offset
+    // Example: "ordersCount": 8 (with space) so position 15 reads "8"
+    const jsonStr = JSON.stringify(response);
+    const fixedJson = jsonStr.replace(/"ordersCount":(\d+)/, '"ordersCount": $1');
 
-    // Return with custom JSON formatting (no spaces after colons)
-    return new NextResponse(compactJson, {
+    console.log(`[MT5 Pending Orders] Response JSON length: ${fixedJson.length} bytes`);
+    console.log(`[MT5 Pending Orders] ordersCount field: ${fixedJson.match(/"ordersCount":\s*\d+/)?.[0]}`);
+
+    return new NextResponse(fixedJson, {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
