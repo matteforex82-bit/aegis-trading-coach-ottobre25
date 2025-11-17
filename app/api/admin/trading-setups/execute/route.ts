@@ -74,10 +74,12 @@ export async function POST(request: NextRequest) {
     // SYMBOL VALIDATION & MAPPING
     // ============================================================================
 
+    // Use 0.01 for validation only (to check symbol exists and is tradeable)
+    // But will send 0 to EA so it calculates based on risk percentage
     const validation = await validateOrderForExecution(
       setup.symbol,
       accountId,
-      lotSize || 0.01,
+      0.01, // Minimal lot size just for validation
       setup.entryPrice,
       setup.stopLoss,
       setup.direction as 'BUY' | 'SELL'
@@ -100,7 +102,8 @@ export async function POST(request: NextRequest) {
     }
 
     const brokerSymbol = validation.brokerSymbol!;
-    const normalizedLotSize = validation.normalizedLotSize || lotSize || 0.01;
+    // Send 0 to trigger EA's automatic position sizing based on riskPercent
+    const finalLotSize = 0;
 
     // Log warnings if any
     if (validation.warnings.length > 0) {
@@ -108,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[Admin] Mapped symbol: ${setup.symbol} → ${brokerSymbol}`);
-    console.log(`[Admin] Lot size: ${lotSize || 0.01} → ${normalizedLotSize}`);
+    console.log(`[Admin] Lot size: 0 (EA will calculate based on 1% risk)`);
 
     // ============================================================================
     // ORDER TYPE DETERMINATION
@@ -136,13 +139,13 @@ export async function POST(request: NextRequest) {
         direction: setup.direction,
         orderType: orderType,
         type: setup.direction, // Legacy field
-        lotSize: normalizedLotSize, // ✅ Use normalized lot size
+        lotSize: finalLotSize, // ✅ 0 = Let EA calculate based on riskPercent
         entryPrice: setup.entryPrice || null, // Null for MARKET orders
         stopLoss: setup.stopLoss,
         takeProfit1: setup.takeProfit1,
         takeProfit2: setup.takeProfit2,
         takeProfit3: setup.takeProfit3,
-        riskPercent: 1.0,
+        riskPercent: 1.0, // 1% risk - EA will use this to calculate position size
         riskAmount: riskAmount || 100,
         invalidationPrice: setup.invalidation,
         comment: `Elliott Wave: ${setup.wavePattern || 'Setup'} (${orderType}) [${setup.symbol}→${brokerSymbol}]`,
@@ -166,8 +169,8 @@ export async function POST(request: NextRequest) {
       details: {
         standardSymbol: setup.symbol,
         brokerSymbol: brokerSymbol,
-        originalLotSize: lotSize || 0.01,
-        normalizedLotSize: normalizedLotSize,
+        lotSize: finalLotSize,
+        positionSizing: 'EA will calculate based on 1% risk',
         orderType: orderType,
         warnings: validation.warnings,
       },
