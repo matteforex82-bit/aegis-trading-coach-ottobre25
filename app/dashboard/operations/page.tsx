@@ -311,7 +311,7 @@ export default function TradeOperationsPage() {
         body: JSON.stringify({
           setupId,
           accountId: selectedAccount,
-          lotSize: 0.01,
+          // lotSize removed - API will use 0 to trigger EA's automatic calculation
           riskAmount: 100
         }),
       });
