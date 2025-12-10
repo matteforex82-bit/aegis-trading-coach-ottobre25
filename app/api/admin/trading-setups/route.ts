@@ -53,10 +53,10 @@ export async function POST(request: NextRequest) {
       requiredPlan = "PRO",
     } = body
 
-    // Validate required fields
-    if (!category || !symbol || !direction || !timeframe || !entryPrice || !stopLoss || !analysisDate) {
+    // Validate required fields (entryPrice can be null for MARKET orders)
+    if (!category || !symbol || !direction || !timeframe || stopLoss === undefined || !analysisDate) {
       return NextResponse.json(
-        { error: "Missing required fields: category, symbol, direction, timeframe, entryPrice, stopLoss, analysisDate" },
+        { error: "Missing required fields: category, symbol, direction, timeframe, stopLoss, analysisDate" },
         { status: 400 }
       )
     }
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         timeframe: timeframe.trim(),
         wavePattern: wavePattern?.trim() || null,
         waveCount: waveCount?.trim() || null,
-        entryPrice: parseFloat(entryPrice),
+        entryPrice: entryPrice !== null ? parseFloat(entryPrice) : null,
         stopLoss: parseFloat(stopLoss),
         takeProfit1: takeProfit1 ? parseFloat(takeProfit1) : null,
         takeProfit2: takeProfit2 ? parseFloat(takeProfit2) : null,

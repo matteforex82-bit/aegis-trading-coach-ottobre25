@@ -128,6 +128,11 @@ export function TradingSetupForm({ open, onOpenChange, setup, onSuccess }: Tradi
     setLoading(true)
 
     try {
+      // Handle MARKET orders: if entryPrice is 0 or "MARKET", set to null
+      const entryPriceValue = entryPrice.trim().toUpperCase() === "MARKET" || parseFloat(entryPrice) === 0
+        ? null
+        : parseFloat(entryPrice);
+
       const payload = {
         category,
         symbol: symbol.trim().toUpperCase(),
@@ -135,7 +140,7 @@ export function TradingSetupForm({ open, onOpenChange, setup, onSuccess }: Tradi
         timeframe: timeframe.trim(),
         wavePattern: wavePattern.trim() || null,
         waveCount: waveCount.trim() || null,
-        entryPrice: parseFloat(entryPrice),
+        entryPrice: entryPriceValue,
         stopLoss: parseFloat(stopLoss),
         takeProfit1: takeProfit1 ? parseFloat(takeProfit1) : null,
         takeProfit2: takeProfit2 ? parseFloat(takeProfit2) : null,
@@ -284,12 +289,11 @@ export function TradingSetupForm({ open, onOpenChange, setup, onSuccess }: Tradi
           {/* Entry and Stop Loss */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="entryPrice">Entry Price *</Label>
+              <Label htmlFor="entryPrice">Entry Price (0 or MARKET for immediate execution)</Label>
               <Input
                 id="entryPrice"
-                type="number"
-                step="0.00001"
-                placeholder="0.00000"
+                type="text"
+                placeholder="Enter price, 0, or MARKET"
                 value={entryPrice}
                 onChange={(e) => setEntryPrice(e.target.value)}
                 required
